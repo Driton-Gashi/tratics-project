@@ -30,6 +30,7 @@ export default async function MovieDetailsPage({
 
   const movie = await wpFetchMovieBySlug(slug);
 
+  console.log(movie);
   if (!movie) notFound();
 
   const title = movie.title?.rendered ?? 'Untitled';
@@ -50,8 +51,8 @@ export default async function MovieDetailsPage({
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         {/* Left column: Poster + meta */}
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
-            <div className="aspect-[2/3] bg-slate-100">
+          <div className="overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-slate-800">
+            <div className="aspect-[2/3] bg-slate-100 dark:bg-slate-800">
               {posterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -63,7 +64,7 @@ export default async function MovieDetailsPage({
                   draggable={false}
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                <div className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
                   No poster
                 </div>
               )}
@@ -71,18 +72,18 @@ export default async function MovieDetailsPage({
 
             <div className="p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300">
                   {year}
                 </span>
 
                 {typeof rating === 'number' && (
-                  <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-slate-900">
+                  <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-slate-900 dark:border-white/10 dark:bg-slate-800 dark:text-slate-100">
                     IMDb {rating.toFixed(1)}
                   </span>
                 )}
 
                 {runtime ? (
-                  <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                  <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300">
                     {runtime} min
                   </span>
                 ) : null}
@@ -93,7 +94,7 @@ export default async function MovieDetailsPage({
                   {genres.slice(0, 6).map(g => (
                     <span
                       key={g}
-                      className="rounded-full bg-slate-900/5 px-2.5 py-1 text-[11px] text-slate-700"
+                      className="rounded-full bg-slate-900/5 px-2.5 py-1 text-[11px] text-slate-700 dark:bg-slate-700/50 dark:text-slate-300"
                     >
                       {g}
                     </span>
@@ -107,7 +108,7 @@ export default async function MovieDetailsPage({
                     href={trailerUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
                   >
                     Watch trailer
                   </a>
@@ -115,7 +116,7 @@ export default async function MovieDetailsPage({
 
                 <Link
                   href="/movies"
-                  className="inline-flex items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-50"
+                  className="inline-flex items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                 >
                   Back to Movies
                 </Link>
@@ -127,10 +128,10 @@ export default async function MovieDetailsPage({
         {/* Right column: Player + details */}
         <div className="space-y-6">
           {/* Streaming / Player */}
-          <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
-            <div className="border-b border-black/10 px-5 py-4">
-              <div className="text-sm font-semibold text-slate-900">Watch</div>
-              <div className="mt-1 text-xs text-slate-500">
+          <div className="overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-slate-800">
+            <div className="border-b border-black/10 px-5 py-4 dark:border-white/10">
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Watch</div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {streamType === 'iframe'
                   ? 'Embedded player'
                   : streamType === 'link'
@@ -161,7 +162,7 @@ export default async function MovieDetailsPage({
                     />
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700">
+                  <div className="rounded-xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-700/50 dark:text-slate-300">
                     This embed is missing or not allowed. Add a YouTube/Vimeo iframe in WordPress.
                   </div>
                 )
@@ -171,17 +172,17 @@ export default async function MovieDetailsPage({
                     href={streamUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
                   >
                     Watch now
                   </a>
                 ) : (
-                  <div className="rounded-xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700">
+                  <div className="rounded-xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-700/50 dark:text-slate-300">
                     Streaming link is missing. Add <code>stream_url</code> in WordPress.
                   </div>
                 )
               ) : (
-                <div className="rounded-xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700">
+                <div className="rounded-xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-700/50 dark:text-slate-300">
                   No streaming available for this title.
                 </div>
               )}
@@ -189,17 +190,17 @@ export default async function MovieDetailsPage({
           </div>
 
           {/* About / Description */}
-          <div className="rounded-2xl border border-black/10 bg-white p-6">
-            <div className="text-sm font-semibold text-slate-900">About</div>
+          <div className="rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-slate-800">
+            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">About</div>
 
-            <div className="mt-3 text-sm text-slate-700">
-              {movie.excerpt?.rendered ? (
+            <div className="mt-3 text-sm text-slate-700 dark:text-slate-300">
+              {movie.content?.rendered ? (
                 <div
                   // eslint-disable-next-line react/no-danger
-                  dangerouslySetInnerHTML={{ __html: movie.excerpt.rendered }}
+                  dangerouslySetInnerHTML={{ __html: movie.content.rendered }}
                 />
               ) : (
-                <p className="text-slate-600">
+                <p className="text-slate-600 dark:text-slate-400">
                   Add an excerpt/description in WordPress to show details here.
                 </p>
               )}
@@ -207,32 +208,36 @@ export default async function MovieDetailsPage({
           </div>
 
           {/* Quick facts */}
-          <div className="rounded-2xl border border-black/10 bg-white p-6">
-            <div className="text-sm font-semibold text-slate-900">Quick facts</div>
+          <div className="rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-slate-800">
+            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Quick facts
+            </div>
 
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-black/10 bg-white p-4">
-                <dt className="text-xs text-slate-500">Release year</dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-900">{year}</dd>
+              <div className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-slate-700/50">
+                <dt className="text-xs text-slate-500 dark:text-slate-400">Release year</dt>
+                <dd className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {year}
+                </dd>
               </div>
 
-              <div className="rounded-xl border border-black/10 bg-white p-4">
-                <dt className="text-xs text-slate-500">Runtime</dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-900">
+              <div className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-slate-700/50">
+                <dt className="text-xs text-slate-500 dark:text-slate-400">Runtime</dt>
+                <dd className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {runtime ? `${runtime} min` : '—'}
                 </dd>
               </div>
 
-              <div className="rounded-xl border border-black/10 bg-white p-4">
-                <dt className="text-xs text-slate-500">IMDb rating</dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-900">
+              <div className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-slate-700/50">
+                <dt className="text-xs text-slate-500 dark:text-slate-400">IMDb rating</dt>
+                <dd className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {typeof rating === 'number' ? rating.toFixed(1) : '—'}
                 </dd>
               </div>
 
-              <div className="rounded-xl border border-black/10 bg-white p-4">
-                <dt className="text-xs text-slate-500">Provider</dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-900">
+              <div className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-slate-700/50">
+                <dt className="text-xs text-slate-500 dark:text-slate-400">Provider</dt>
+                <dd className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {typeof movie.acf?.stream_provider === 'string' &&
                   movie.acf.stream_provider.trim()
                     ? movie.acf.stream_provider

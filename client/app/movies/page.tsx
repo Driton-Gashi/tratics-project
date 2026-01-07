@@ -36,7 +36,7 @@ export default async function MoviesPage({ searchParams }: { searchParams?: Movi
       title="Movies"
       description={searchQuery ? `Results for "${searchQuery}"` : 'Browse movies from WordPress.'}
       rightSlot={
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-slate-500 dark:text-slate-400">
           Page {currentPage} / {totalPages || 1}
         </div>
       }
@@ -64,9 +64,9 @@ export default async function MoviesPage({ searchParams }: { searchParams?: Movi
       </div>
 
       {movies.length === 0 && (
-        <div className="mt-8 rounded-2xl border border-black/10 bg-white p-8 text-center">
-          <div className="text-sm font-semibold text-slate-900">No movies found</div>
-          <div className="mt-2 text-sm text-slate-600">Try another search term.</div>
+        <div className="mt-8 rounded-2xl border border-black/10 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-800">
+          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">No movies found</div>
+          <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">Try another search term.</div>
         </div>
       )}
     </PageContainer>
@@ -84,6 +84,6 @@ function buildMoviesHref({ q, page }: { q?: string; page: number }): string {
 
 function getPaginationButtonClass(isDisabled: boolean): string {
   const base =
-    'rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50';
+    'rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
   return isDisabled ? `${base} pointer-events-none opacity-50` : base;
 }

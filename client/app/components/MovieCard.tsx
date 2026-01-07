@@ -12,7 +12,7 @@ export type MovieCardData = {
 
 function RatingPill({ rating }: { rating: number }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-black/10 bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-900">
+    <span className="inline-flex items-center rounded-full border border-black/10 bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-900 dark:border-white/10 dark:bg-slate-800/80 dark:text-slate-100">
       {rating.toFixed(1)}
     </span>
   );
@@ -28,12 +28,12 @@ function PosterFallback({ title }: { title: string }) {
       .join('') || 'M';
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-slate-100">
+    <div className="flex h-full w-full items-center justify-center bg-slate-100 dark:bg-slate-800">
       <div className="flex flex-col items-center gap-2">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white dark:bg-slate-700">
           {initials}
         </div>
-        <div className="px-4 text-center text-xs text-slate-500">No poster</div>
+        <div className="px-4 text-center text-xs text-slate-500 dark:text-slate-400">No poster</div>
       </div>
     </div>
   );
@@ -45,9 +45,9 @@ export default function MovieCard({ movie }: { movie: MovieCardData }) {
   return (
     <Link
       href={`/movies/${movie.slug}`}
-      className="group overflow-hidden rounded-2xl border border-black/10 bg-white transition hover:bg-slate-50"
+      className="group overflow-hidden rounded-2xl border border-black/10 bg-white transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:hover:bg-slate-700"
     >
-      <div className="relative aspect-[16/10] w-full bg-slate-100">
+      <div className="relative aspect-[16/10] w-full bg-slate-100 dark:bg-slate-800">
         {poster ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -72,13 +72,13 @@ export default function MovieCard({ movie }: { movie: MovieCardData }) {
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-900 group-hover:underline">
+            <div className="truncate text-sm font-semibold text-slate-900 group-hover:underline dark:text-slate-100">
               {movie.title}
             </div>
-            <div className="mt-1 text-xs text-slate-500">{movie.year}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{movie.year}</div>
           </div>
 
-          <span className="rounded-lg border border-black/10 px-2 py-1 text-xs text-slate-700">
+          <span className="rounded-lg border border-black/10 px-2 py-1 text-xs text-slate-700 dark:border-white/10 dark:text-slate-300">
             →
           </span>
         </div>
@@ -88,7 +88,7 @@ export default function MovieCard({ movie }: { movie: MovieCardData }) {
             {movie.genres.slice(0, 3).map(g => (
               <span
                 key={g}
-                className="rounded-full bg-slate-900/5 px-2.5 py-1 text-[11px] text-slate-700"
+                className="rounded-full bg-slate-900/5 px-2.5 py-1 text-[11px] text-slate-700 dark:bg-slate-700/50 dark:text-slate-300"
               >
                 {g}
               </span>
