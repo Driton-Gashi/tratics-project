@@ -15,14 +15,8 @@ import {
   sanitizeAndValidateIframe,
 } from '@/lib/wp';
 
-export default async function MovieDetailsPage({
-  params,
-}: {
-  params: Promise<{ slug: string }> | { slug: string };
-}) {
-  // Handle both Promise and direct params (Next.js 15+ vs older versions)
-  const resolvedParams = params instanceof Promise ? await params : params;
-  const slug = resolvedParams?.slug;
+export default async function MovieDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
 
   if (!slug || typeof slug !== 'string') {
     notFound();
@@ -30,7 +24,6 @@ export default async function MovieDetailsPage({
 
   const movie = await wpFetchMovieBySlug(slug);
 
-  console.log(movie);
   if (!movie) notFound();
 
   const title = movie.title?.rendered ?? 'Untitled';

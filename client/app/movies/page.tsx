@@ -4,13 +4,24 @@ import MovieCard, { type MovieCardData } from '@/components/MovieCard';
 import { wpFetchMovies, getFeaturedImageUrl, getGenres, getReleaseYear, getRating } from '@/lib/wp';
 
 type MoviesSearchParams = {
-  q?: string;
-  page?: string;
+  q?: string | string[];
+  page?: string | string[];
 };
 
-export default async function MoviesPage({ searchParams }: { searchParams?: MoviesSearchParams }) {
-  const searchQuery = searchParams?.q ?? '';
-  const currentPage = Number(searchParams?.page ?? '1') || 1;
+type MoviesPageProps = {
+  searchParams?: Promise<MoviesSearchParams>;
+};
+
+function coerceSearchParam(value?: string | string[]): string {
+  if (Array.isArray(value)) return value[0] ?? '';
+  return value ?? '';
+}
+
+export default async function MoviesPage({ searchParams }: MoviesPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+
+  const searchQuery = coerceSearchParam(resolvedSearchParams.q).trim();
+  const currentPage = Number(coerceSearchParam(resolvedSearchParams.page) || '1') || 1;
   const perPage = 12;
 
   const result = await wpFetchMovies({
@@ -80,8 +91,10 @@ export default async function MoviesPage({ searchParams }: { searchParams?: Movi
 function buildMoviesHref({ q, page }: { q?: string; page: number }): string {
   const params = new URLSearchParams();
   const trimmed = typeof q === 'string' ? q.trim() : '';
+
   if (trimmed) params.set('q', trimmed);
   if (page > 1) params.set('page', String(page));
+
   const queryString = params.toString();
   return queryString ? `/movies?${queryString}` : '/movies';
 }
