@@ -7,17 +7,22 @@ interface EnvConfig {
   nodeEnv: string;
   database: {
     host: string;
+    port: number;
     user: string;
     password: string;
     database: string;
   };
+  jwtSecret: string;
+  cookieSecure: boolean;
+  clientUrl: string;
 }
 
 const requiredEnvVars = [
-  'DATABASE_HOST',
-  'DATABASE_USER',
-  'DATABASE_PASSWORD',
-  'DATABASE_NAME',
+  'DB_HOST',
+  'DB_USER',
+  'DB_PASSWORD',
+  'DB_NAME',
+  'JWT_SECRET',
 ] as const;
 
 function validateEnv(): void {
@@ -34,15 +39,22 @@ function validateEnv(): void {
 export function getEnv(): EnvConfig {
   validateEnv();
 
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const isProduction = nodeEnv === 'production';
+
   return {
     port: Number(process.env.PORT) || 4000,
-    nodeEnv: process.env.NODE_ENV || 'development',
+    nodeEnv,
     database: {
-      host: process.env.DATABASE_HOST!,
-      user: process.env.DATABASE_USER!,
-      password: process.env.DATABASE_PASSWORD!,
-      database: process.env.DATABASE_NAME!,
+      host: process.env.DB_HOST!,
+      port: Number(process.env.DB_PORT) || 3306,
+      user: process.env.DB_USER!,
+      password: process.env.DB_PASSWORD!,
+      database: process.env.DB_NAME!,
     },
+    jwtSecret: process.env.JWT_SECRET!,
+    cookieSecure: process.env.COOKIE_SECURE === 'true' || isProduction,
+    clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
   };
 }
 
