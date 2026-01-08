@@ -11,6 +11,7 @@ const GROUPS: NavGroup[] = [
   {
     title: 'Browse',
     items: [
+      { label: 'Home', href: '/' },
       { label: 'Movies', href: '/movies' },
       { label: 'Series', href: '/series' },
       { label: 'Collections', href: '/collections' },

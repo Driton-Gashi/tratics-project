@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Hide scrollbar for horizontal rows */
 .scrollbar-hide {
   -ms-overflow-style: none; /* IE and Edge */

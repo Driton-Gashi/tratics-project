@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/src/contexts/ThemeProvider';
+import { meApi } from '@/src/lib/api';
 
 type HeaderProps = {
   onOpenSidebar: () => void;
@@ -32,11 +33,14 @@ function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
 
 export default function Header({ onOpenSidebar }: HeaderProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { theme, toggleTheme } = useTheme();
 
   const [query, setQuery] = useState('');
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     const q = searchParams?.get('q') ?? '';
@@ -44,9 +48,111 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
     setQuery(q);
   }, [searchParams]);
 
-  const isSearchPage = useMemo(() => pathname?.startsWith('/movies'), [pathname]);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-  const isAuthed = false;
+  const applyStoredAuthHint = useCallback(() => {
+    try {
+      const stored = localStorage.getItem('auth-state');
+      if (stored === 'logged-in') setIsAuthed(true);
+      if (stored === 'logged-out') setIsAuthed(false);
+    } catch {
+      // Ignore storage access issues.
+    }
+  }, []);
+
+  const refreshAuthState = useCallback(() => {
+    meApi
+      .getProfile()
+      .then(() => {
+        if (isMountedRef.current) setIsAuthed(true);
+      })
+      .catch(() => {
+        if (isMountedRef.current) setIsAuthed(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    applyStoredAuthHint();
+    refreshAuthState();
+  }, [applyStoredAuthHint, refreshAuthState]);
+
+  useEffect(() => {
+    const onAuthChanged = () => {
+      applyStoredAuthHint();
+      refreshAuthState();
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'auth-state') {
+        applyStoredAuthHint();
+        refreshAuthState();
+      }
+    };
+
+    window.addEventListener('auth-changed', onAuthChanged);
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      window.removeEventListener('auth-changed', onAuthChanged);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [refreshAuthState]);
+
+  useEffect(() => {
+    if (!isAccountOpen) return;
+
+    const onClickOutside = (event: MouseEvent) => {
+      if (
+        accountMenuRef.current &&
+        event.target instanceof Node &&
+        !accountMenuRef.current.contains(event.target)
+      ) {
+        setIsAccountOpen(false);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsAccountOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onClickOutside);
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isAccountOpen]);
+
+  const handleLogout = async () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiPath = apiUrl.includes('/api') ? '' : '/api';
+
+    try {
+      await fetch(`${apiUrl}${apiPath}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // Logout is idempotent; ignore network errors and reset local state.
+    }
+
+    setIsAuthed(false);
+    setIsAccountOpen(false);
+    try {
+      localStorage.setItem('auth-state', 'logged-out');
+      window.dispatchEvent(new Event('auth-changed'));
+    } catch {
+      // Ignore storage access issues.
+    }
+    router.push('/');
+  };
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,27 +271,58 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
                 </Link>
               </>
             ) : (
-              <Link
-                href="/me"
-                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-              >
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-300">
-                  U
-                </span>
-                <span>Account</span>
-              </Link>
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsAccountOpen(prev => !prev)}
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  aria-haspopup="menu"
+                  aria-expanded={isAccountOpen}
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                    U
+                  </span>
+                  <span>Account</span>
+                </button>
+
+                {isAccountOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-black/10 bg-white py-2 shadow-lg dark:border-white/10 dark:bg-slate-900">
+                    <Link
+                      href="/me"
+                      onClick={() => setIsAccountOpen(false)}
+                      className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Profile
+                    </Link>
+                    <Link
+                      href="/me/watchlist"
+                      onClick={() => setIsAccountOpen(false)}
+                      className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Watchlist
+                    </Link>
+                    <Link
+                      href="/me/favorites"
+                      onClick={() => setIsAccountOpen(false)}
+                      className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Favorites
+                    </Link>
+                    <div className="my-2 h-px bg-black/10 dark:bg-white/10" />
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
       </div>
-
-      {isSearchPage && (
-        <div className="border-t border-black/10 bg-white/70 dark:border-white/10 dark:bg-slate-900/70">
-          <div className="mx-auto max-w-6xl px-4 py-2 text-xs text-slate-500 dark:text-slate-400 sm:px-6">
-            Tip: Use the sidebar for navigation. Search filters live on the Movies page.
-          </div>
-        </div>
-      )}
     </header>
   );
 }

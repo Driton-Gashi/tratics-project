@@ -16,6 +16,7 @@ import {
   type WPMovie,
   type WPSeries,
 } from '@/lib/wp';
+import Link from 'next/link';
 
 // Memoize media fetches within a single request
 const mediaCache = new Map<number, Promise<string | null>>();
@@ -53,19 +54,15 @@ function seriesToPosterCard(series: WPSeries, posterUrl: string | null): PosterC
 
 export default async function HomePage() {
   // Fetch all data in parallel
-  const [
-    trendingMovies,
-    trendingSeries,
-    recentMovies,
-    recentSeries,
-    allGenres,
-  ] = await Promise.all([
-    wpFetchTrendingMovies(),
-    wpFetchTrendingSeries(),
-    wpFetchRecentlyAddedMovies(),
-    wpFetchRecentlyAddedSeries(),
-    wpFetchAllGenres(),
-  ]);
+  const [trendingMovies, trendingSeries, recentMovies, recentSeries, allGenres] = await Promise.all(
+    [
+      wpFetchTrendingMovies(),
+      wpFetchTrendingSeries(),
+      wpFetchRecentlyAddedMovies(),
+      wpFetchRecentlyAddedSeries(),
+      wpFetchAllGenres(),
+    ]
+  );
 
   // Resolve all poster URLs in parallel
   const trendingMoviePosters = await Promise.all(
@@ -131,9 +128,7 @@ export default async function HomePage() {
             <h1 className="text-3xl font-bold text-white sm:text-4xl md:text-5xl">
               Welcome to Tratics
             </h1>
-            <p className="mt-4 text-lg text-white/80">
-              Discover movies and series from WordPress
-            </p>
+            <p className="mt-4 text-lg text-white/80">Discover movies and series from WordPress</p>
           </div>
         </section>
       )}
@@ -173,12 +168,12 @@ export default async function HomePage() {
             <div>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Movies</h3>
-                <a
+                <Link
                   href="/movies"
                   className="text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
                 >
                   See all →
-                </a>
+                </Link>
               </div>
               <div className="overflow-x-auto pb-4 scrollbar-hide">
                 <div className="flex gap-4">
@@ -194,12 +189,12 @@ export default async function HomePage() {
             <div>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Series</h3>
-                <a
+                <Link
                   href="/series"
                   className="text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
                 >
                   See all →
-                </a>
+                </Link>
               </div>
               <div className="overflow-x-auto pb-4 scrollbar-hide">
                 <div className="flex gap-4">

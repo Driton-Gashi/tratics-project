@@ -52,6 +52,13 @@ export default function LoginPage() {
         return;
       }
 
+      try {
+        localStorage.setItem('auth-state', 'logged-in');
+        window.dispatchEvent(new Event('auth-changed'));
+      } catch {
+        // Ignore storage access issues.
+      }
+
       // Redirect to movies page on success
       router.push('/movies');
       router.refresh();
