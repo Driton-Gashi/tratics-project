@@ -13,7 +13,7 @@ const app = express();
 // CORS configuration
 const allowedOrigins =
   env.nodeEnv === 'production'
-    ? [env.clientUrl]
+    ? env.clientUrls
     : ['http://localhost:3000', 'http://localhost:3001'];
 
 app.use(

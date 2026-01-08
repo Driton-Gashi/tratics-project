@@ -14,7 +14,7 @@ interface EnvConfig {
   };
   jwtSecret: string;
   cookieSecure: boolean;
-  clientUrl: string;
+  clientUrls: string[];
 }
 
 const requiredEnvVars = [
@@ -54,7 +54,10 @@ export function getEnv(): EnvConfig {
     },
     jwtSecret: process.env.JWT_SECRET!,
     cookieSecure: process.env.COOKIE_SECURE === 'true' || isProduction,
-    clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
+    clientUrls: (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:3000')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean),
   };
 }
 
