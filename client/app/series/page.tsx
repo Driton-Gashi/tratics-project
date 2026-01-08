@@ -6,6 +6,7 @@ import { wpFetchSeries, getPosterUrl, wpFetchGenres, getTitleText } from '@/lib/
 type SeriesSearchParams = {
   q?: string | string[];
   page?: string | string[];
+  genre?: string | string[];
 };
 
 type SeriesPageProps = {
@@ -17,17 +18,25 @@ function coerceSearchParam(value?: string | string[]): string {
   return value ?? '';
 }
 
+function coerceNumberParam(value?: string | string[]): number | undefined {
+  const str = coerceSearchParam(value);
+  const num = Number(str);
+  return Number.isFinite(num) && num > 0 ? num : undefined;
+}
+
 export default async function SeriesPage({ searchParams }: SeriesPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
 
   const searchQuery = coerceSearchParam(resolvedSearchParams.q).trim();
   const currentPage = Number(coerceSearchParam(resolvedSearchParams.page) || '1') || 1;
+  const genreId = coerceNumberParam(resolvedSearchParams.genre);
   const perPage = 12;
 
   const result = await wpFetchSeries({
     q: searchQuery,
     page: currentPage,
     perPage,
+    genre: genreId,
   });
 
   // Fetch all media and genres in parallel
@@ -74,14 +83,18 @@ export default async function SeriesPage({ searchParams }: SeriesPageProps) {
 
       <div className="mt-8 flex items-center justify-between">
         <Link
-          href={buildSeriesHref({ q: searchQuery, page: Math.max(1, currentPage - 1) })}
+          href={buildSeriesHref({
+            q: searchQuery,
+            page: Math.max(1, currentPage - 1),
+            genre: genreId,
+          })}
           className={getPaginationButtonClass(currentPage <= 1)}
         >
           Previous
         </Link>
 
         <Link
-          href={buildSeriesHref({ q: searchQuery, page: currentPage + 1 })}
+          href={buildSeriesHref({ q: searchQuery, page: currentPage + 1, genre: genreId })}
           className={getPaginationButtonClass(totalPages > 0 && currentPage >= totalPages)}
         >
           Next
@@ -102,12 +115,13 @@ export default async function SeriesPage({ searchParams }: SeriesPageProps) {
   );
 }
 
-function buildSeriesHref({ q, page }: { q?: string; page: number }): string {
+function buildSeriesHref({ q, page, genre }: { q?: string; page: number; genre?: number }): string {
   const params = new URLSearchParams();
   const trimmed = typeof q === 'string' ? q.trim() : '';
 
   if (trimmed) params.set('q', trimmed);
   if (page > 1) params.set('page', String(page));
+  if (genre) params.set('genre', String(genre));
 
   const queryString = params.toString();
   return queryString ? `/series?${queryString}` : '/series';

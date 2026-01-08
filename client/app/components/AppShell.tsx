@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
+import Footer from '@/components/Footer';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -12,9 +13,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="md:grid md:grid-cols-[16rem_1fr]">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        <div className="min-w-0">
+        <div className="min-w-0 flex flex-col">
           <Header onOpenSidebar={() => setSidebarOpen(true)} />
-          <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">{children}</main>
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">{children}</main>
+          <Footer />
         </div>
       </div>
     </div>

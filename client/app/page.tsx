@@ -1,272 +1,221 @@
-import Link from 'next/link';
+import HomeHero, { type HomeHeroData } from '@/components/HomeHero';
+import HorizontalRow from '@/components/HorizontalRow';
+import GenreChips from '@/components/GenreChips';
+import PosterCard, { type PosterCardData } from '@/components/PosterCard';
+import {
+  wpFetchTrendingMovies,
+  wpFetchTrendingSeries,
+  wpFetchRecentlyAddedMovies,
+  wpFetchRecentlyAddedSeries,
+  wpFetchAllGenres,
+  getPosterUrl,
+  getTitleText,
+  getExcerptText,
+  getReleaseYear,
+  getRating,
+  type WPMovie,
+  type WPSeries,
+} from '@/lib/wp';
 
-type FeaturedItem = {
-  id: string;
-  title: string;
-  year: number;
-  type: 'Movie' | 'Series';
-  rating: number;
-  poster: string;
-  href: string;
-};
+// Memoize media fetches within a single request
+const mediaCache = new Map<number, Promise<string | null>>();
 
-const FEATURED: FeaturedItem[] = [
-  {
-    id: '1',
-    title: 'The Last Horizon',
-    year: 2024,
-    type: 'Movie',
-    rating: 8.4,
-    poster: '/posters/placeholder-1.jpg',
-    href: '/movies/the-last-horizon',
-  },
-  {
-    id: '2',
-    title: 'City of Echoes',
-    year: 2023,
-    type: 'Series',
-    rating: 8.1,
-    poster: '/posters/placeholder-2.jpg',
-    href: '/series/city-of-echoes',
-  },
-  {
-    id: '3',
-    title: 'Midnight Protocol',
-    year: 2022,
-    type: 'Movie',
-    rating: 7.9,
-    poster: '/posters/placeholder-3.jpg',
-    href: '/movies/midnight-protocol',
-  },
-  {
-    id: '4',
-    title: 'Northbound',
-    year: 2021,
-    type: 'Movie',
-    rating: 7.6,
-    poster: '/posters/placeholder-4.jpg',
-    href: '/movies/northbound',
-  },
-];
-
-function ScorePill({ rating }: { rating: number }) {
-  const label = rating >= 8 ? 'Excellent' : rating >= 7 ? 'Good' : 'Rated';
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1 text-xs text-slate-700 dark:border-white/10 dark:bg-slate-800/70 dark:text-slate-300">
-      <span className="font-semibold text-slate-900 dark:text-slate-100">{rating.toFixed(1)}</span>
-      <span className="text-slate-500 dark:text-slate-400">•</span>
-      <span>{label}</span>
-    </div>
-  );
+async function getCachedPosterUrl(mediaId?: number): Promise<string | null> {
+  if (!mediaId) return null;
+  if (!mediaCache.has(mediaId)) {
+    mediaCache.set(mediaId, getPosterUrl(mediaId));
+  }
+  return mediaCache.get(mediaId)!;
 }
 
-export default function HomePage() {
+function movieToPosterCard(movie: WPMovie, posterUrl: string | null): PosterCardData {
+  return {
+    id: movie.id,
+    slug: movie.slug,
+    title: getTitleText(movie),
+    year: getReleaseYear(movie),
+    rating: getRating(movie),
+    posterUrl: posterUrl,
+    type: 'movie',
+  };
+}
+
+function seriesToPosterCard(series: WPSeries, posterUrl: string | null): PosterCardData {
+  return {
+    id: series.id,
+    slug: series.slug,
+    title: getTitleText(series),
+    year: getReleaseYear(series),
+    posterUrl: posterUrl,
+    type: 'series',
+  };
+}
+
+export default async function HomePage() {
+  // Fetch all data in parallel
+  const [
+    trendingMovies,
+    trendingSeries,
+    recentMovies,
+    recentSeries,
+    allGenres,
+  ] = await Promise.all([
+    wpFetchTrendingMovies(),
+    wpFetchTrendingSeries(),
+    wpFetchRecentlyAddedMovies(),
+    wpFetchRecentlyAddedSeries(),
+    wpFetchAllGenres(),
+  ]);
+
+  // Resolve all poster URLs in parallel
+  const trendingMoviePosters = await Promise.all(
+    trendingMovies.map(m => getCachedPosterUrl(m.featured_media))
+  );
+  const trendingSeriesPosters = await Promise.all(
+    trendingSeries.map(s => getCachedPosterUrl(s.featured_media))
+  );
+  const recentMoviePosters = await Promise.all(
+    recentMovies.map(m => getCachedPosterUrl(m.featured_media))
+  );
+  const recentSeriesPosters = await Promise.all(
+    recentSeries.map(s => getCachedPosterUrl(s.featured_media))
+  );
+
+  // Convert to poster cards
+  const trendingMovieCards: PosterCardData[] = trendingMovies.map((m, i) =>
+    movieToPosterCard(m, trendingMoviePosters[i])
+  );
+  const trendingSeriesCards: PosterCardData[] = trendingSeries.map((s, i) =>
+    seriesToPosterCard(s, trendingSeriesPosters[i])
+  );
+  const recentMovieCards: PosterCardData[] = recentMovies.map((m, i) =>
+    movieToPosterCard(m, recentMoviePosters[i])
+  );
+  const recentSeriesCards: PosterCardData[] = recentSeries.map((s, i) =>
+    seriesToPosterCard(s, recentSeriesPosters[i])
+  );
+
+  // Featured hero item (highest rated movie or series)
+  const featuredMovie = trendingMovies[0];
+  const featuredSeries = trendingSeries[0];
+  const featuredItem: HomeHeroData | null =
+    featuredMovie && getRating(featuredMovie)
+      ? {
+          type: 'movie',
+          title: getTitleText(featuredMovie),
+          excerpt: getExcerptText(featuredMovie) || 'No description yet.',
+          year: getReleaseYear(featuredMovie),
+          rating: getRating(featuredMovie),
+          posterUrl: trendingMoviePosters[0],
+          href: `/movies/${featuredMovie.slug}`,
+        }
+      : featuredSeries
+        ? {
+            type: 'series',
+            title: getTitleText(featuredSeries),
+            excerpt: getExcerptText(featuredSeries) || 'No description yet.',
+            year: getReleaseYear(featuredSeries),
+            posterUrl: trendingSeriesPosters[0],
+            href: `/series/${featuredSeries.slug}`,
+          }
+        : null;
+
   return (
-    <div className="space-y-10">
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/5 via-transparent to-slate-900/10 dark:from-slate-100/5 dark:to-slate-100/10" />
-        <div className="relative px-6 py-10 sm:px-10 sm:py-14">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Your personal library
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-              Track what you watch. Discover what&apos;s next.
+    <div className="space-y-12">
+      {/* Hero Section */}
+      {featuredItem ? (
+        <HomeHero item={featuredItem} />
+      ) : (
+        <section className="relative -mx-4 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 sm:mx-0">
+          <div className="px-4 py-16 text-center sm:px-8 sm:py-24">
+            <h1 className="text-3xl font-bold text-white sm:text-4xl md:text-5xl">
+              Welcome to Tratics
             </h1>
-            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Browse movies and series, build your watchlist, save favorites, and keep everything
-              organized in one place.
-            </p>
-
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/movies"
-                className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
-              >
-                Browse Movies
-              </Link>
-              <Link
-                href="/me/watchlist"
-                className="inline-flex items-center justify-center rounded-xl border border-black/10 bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-              >
-                View Watchlist
-              </Link>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-              <span className="rounded-full bg-slate-900/5 px-3 py-1 text-xs text-slate-700 dark:bg-slate-700/50 dark:text-slate-300">
-                Search built-in
-              </span>
-              <span className="rounded-full bg-slate-900/5 px-3 py-1 text-xs text-slate-700 dark:bg-slate-700/50 dark:text-slate-300">
-                Watchlist & favorites
-              </span>
-              <span className="rounded-full bg-slate-900/5 px-3 py-1 text-xs text-slate-700 dark:bg-slate-700/50 dark:text-slate-300">
-                Admin uploads
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Quick navigation cards */}
-      <section>
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Explore</h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Jump directly into a section.
+            <p className="mt-4 text-lg text-white/80">
+              Discover movies and series from WordPress
             </p>
           </div>
+        </section>
+      )}
+
+      {/* Trending Movies */}
+      <HorizontalRow
+        title="Trending Movies"
+        seeAllHref="/movies"
+        items={trendingMovieCards}
+        emptyMessage="No trending movies available yet."
+      />
+
+      {/* Trending Series */}
+      <HorizontalRow
+        title="Trending Series"
+        seeAllHref="/series"
+        items={trendingSeriesCards}
+        emptyMessage="No trending series available yet."
+      />
+
+      {/* Browse by Genre */}
+      <GenreChips genres={allGenres} />
+
+      {/* Recently Added */}
+      <section className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+            Recently Added
+          </h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            Latest movies and series
+          </p>
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Link
-            href="/movies"
-            className="group rounded-2xl border border-black/10 bg-white p-5 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:hover:bg-slate-700"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Movies
-                </div>
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Browse and search films
+        <div className="space-y-8">
+          {recentMovieCards.length > 0 && (
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Movies</h3>
+                <a
+                  href="/movies"
+                  className="text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+                >
+                  See all →
+                </a>
+              </div>
+              <div className="overflow-x-auto pb-4 scrollbar-hide">
+                <div className="flex gap-4">
+                  {recentMovieCards.map(item => (
+                    <PosterCard key={item.id} item={item} />
+                  ))}
                 </div>
               </div>
-              <span className="rounded-xl bg-slate-900 px-3 py-1 text-xs font-semibold text-white dark:bg-slate-700">
-                Go
-              </span>
             </div>
-            <div className="mt-4 h-1 w-12 rounded-full bg-slate-900/20 transition group-hover:w-20 dark:bg-slate-400/20" />
-          </Link>
+          )}
 
-          <Link
-            href="/series"
-            className="group rounded-2xl border border-black/10 bg-white p-5 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:hover:bg-slate-700"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Series
-                </div>
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Track seasons and shows
+          {recentSeriesCards.length > 0 && (
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Series</h3>
+                <a
+                  href="/series"
+                  className="text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+                >
+                  See all →
+                </a>
+              </div>
+              <div className="overflow-x-auto pb-4 scrollbar-hide">
+                <div className="flex gap-4">
+                  {recentSeriesCards.map(item => (
+                    <PosterCard key={item.id} item={item} />
+                  ))}
                 </div>
               </div>
-              <span className="rounded-xl bg-slate-900 px-3 py-1 text-xs font-semibold text-white dark:bg-slate-700">
-                Go
-              </span>
             </div>
-            <div className="mt-4 h-1 w-12 rounded-full bg-slate-900/20 transition group-hover:w-20 dark:bg-slate-400/20" />
-          </Link>
+          )}
 
-          <Link
-            href="/collections"
-            className="group rounded-2xl border border-black/10 bg-white p-5 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:hover:bg-slate-700"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Collections
-                </div>
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Curated sets and lists
-                </div>
-              </div>
-              <span className="rounded-xl bg-slate-900 px-3 py-1 text-xs font-semibold text-white dark:bg-slate-700">
-                Go
-              </span>
+          {recentMovieCards.length === 0 && recentSeriesCards.length === 0 && (
+            <div className="rounded-xl border border-black/10 bg-white/50 p-8 text-center text-sm text-slate-600 dark:border-white/10 dark:bg-slate-800/50 dark:text-slate-400">
+              No recently added content available yet.
             </div>
-            <div className="mt-4 h-1 w-12 rounded-full bg-slate-900/20 transition group-hover:w-20 dark:bg-slate-400/20" />
-          </Link>
-        </div>
-      </section>
-
-      {/* Trending */}
-      <section>
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Trending now
-            </h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Popular picks to get you started.
-            </p>
-          </div>
-
-          <Link
-            href="/movies"
-            className="text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
-          >
-            View all
-          </Link>
-        </div>
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURED.map(item => (
-            <Link
-              key={item.id}
-              href={item.href}
-              className="group overflow-hidden rounded-2xl border border-black/10 bg-white transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:hover:bg-slate-700"
-            >
-              <div className="aspect-[16/10] w-full bg-slate-100 dark:bg-slate-800">
-                {/* Replace this with <Image /> later */}
-                <div className="flex h-full items-center justify-center text-xs text-slate-500 dark:text-slate-400">
-                  Poster
-                </div>
-              </div>
-
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900 group-hover:underline dark:text-slate-100">
-                      {item.title}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {item.type} • {item.year}
-                    </div>
-                  </div>
-                  <ScorePill rating={item.rating} />
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Open details</span>
-                  <span className="rounded-lg border border-black/10 px-2 py-1 text-xs text-slate-700 dark:border-white/10 dark:text-slate-300">
-                    →
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* Continue / Watchlist prompt */}
-      <section className="rounded-2xl border border-black/10 bg-white p-6 sm:p-8 dark:border-white/10 dark:bg-slate-800">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Keep your list up to date
-            </h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              Save titles you want to watch and mark favorites.
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <Link
-              href="/me/watchlist"
-              className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
-            >
-              Watchlist
-            </Link>
-            <Link
-              href="/me/favorites"
-              className="rounded-xl border border-black/10 bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-            >
-              Favorites
-            </Link>
-          </div>
+          )}
         </div>
       </section>
     </div>

@@ -222,6 +222,21 @@ export async function wpFetchGenres(genreIds: number[]): Promise<WPGenre[]> {
   return (await res.json()) as WPGenre[];
 }
 
+export async function wpFetchAllGenres(): Promise<WPGenre[]> {
+  const url = `${WP_BASE_URL}/wp-json/wp/v2/genre?per_page=100&_fields=id,name,slug&orderby=name&order=asc`;
+
+  const res = await fetch(url, {
+    next: { revalidate: 3600 },
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    return [];
+  }
+
+  return (await res.json()) as WPGenre[];
+}
+
 export function getGenreNames(genres: WPGenre[]): string[] {
   return genres.map(g => g.name);
 }
@@ -234,6 +249,9 @@ export async function wpFetchMovies(params?: {
   q?: string;
   page?: number;
   perPage?: number;
+  genre?: number;
+  orderby?: string;
+  order?: 'asc' | 'desc';
 }): Promise<{ data: WPMovie[]; totalPages: number }> {
   const url = new URL(`${WP_BASE_URL}/wp-json/wp/v2/${WP_MOVIE_REST_BASE}`);
 
@@ -243,6 +261,15 @@ export async function wpFetchMovies(params?: {
 
   const q = params?.q?.trim();
   if (q) url.searchParams.set('search', q);
+
+  if (params?.genre) {
+    url.searchParams.set('genre', String(params.genre));
+  }
+
+  if (params?.orderby) {
+    url.searchParams.set('orderby', params.orderby);
+    url.searchParams.set('order', params.order ?? 'desc');
+  }
 
   const res = await fetch(url.toString(), {
     next: { revalidate: 60 },
@@ -258,6 +285,20 @@ export async function wpFetchMovies(params?: {
   const data = (await res.json()) as WPMovie[];
 
   return { data, totalPages };
+}
+
+export async function wpFetchTrendingMovies(): Promise<WPMovie[]> {
+  const result = await wpFetchMovies({ perPage: 30 });
+  // Sort by IMDb rating descending, filter out items without ratings
+  const sorted = result.data
+    .filter(m => typeof m.acf?.imdb_rating === 'number' && m.acf.imdb_rating > 0)
+    .sort((a, b) => (b.acf?.imdb_rating ?? 0) - (a.acf?.imdb_rating ?? 0));
+  return sorted.slice(0, 12);
+}
+
+export async function wpFetchRecentlyAddedMovies(): Promise<WPMovie[]> {
+  const result = await wpFetchMovies({ perPage: 8, orderby: 'date', order: 'desc' });
+  return result.data;
 }
 
 export async function wpFetchMovieBySlug(slug: string | undefined | null): Promise<WPMovie | null> {
@@ -298,6 +339,9 @@ export async function wpFetchSeries(params?: {
   q?: string;
   page?: number;
   perPage?: number;
+  genre?: number;
+  orderby?: string;
+  order?: 'asc' | 'desc';
 }): Promise<{ data: WPSeries[]; totalPages: number }> {
   const url = new URL(`${WP_BASE_URL}/wp-json/wp/v2/${WP_SERIES_REST_BASE}`);
 
@@ -307,6 +351,15 @@ export async function wpFetchSeries(params?: {
 
   const q = params?.q?.trim();
   if (q) url.searchParams.set('search', q);
+
+  if (params?.genre) {
+    url.searchParams.set('genre', String(params.genre));
+  }
+
+  if (params?.orderby) {
+    url.searchParams.set('orderby', params.orderby);
+    url.searchParams.set('order', params.order ?? 'desc');
+  }
 
   const res = await fetch(url.toString(), {
     next: { revalidate: 60 },
@@ -322,6 +375,19 @@ export async function wpFetchSeries(params?: {
   const data = (await res.json()) as WPSeries[];
 
   return { data, totalPages };
+}
+
+export async function wpFetchTrendingSeries(): Promise<WPSeries[]> {
+  const result = await wpFetchSeries({ perPage: 30 });
+  // For now, just shuffle or take latest since series may not have ratings
+  // In the future, if series get rating fields, sort by rating
+  const shuffled = [...result.data].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 12);
+}
+
+export async function wpFetchRecentlyAddedSeries(): Promise<WPSeries[]> {
+  const result = await wpFetchSeries({ perPage: 8, orderby: 'date', order: 'desc' });
+  return result.data;
 }
 
 export async function wpFetchSeriesBySlug(
