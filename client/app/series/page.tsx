@@ -1,22 +1,15 @@
 import Link from 'next/link';
 import PageContainer from '@/components/PageContainer';
-import MovieCard, { type MovieCardData } from '@/components/MovieCard';
-import {
-  wpFetchMovies,
-  getPosterUrl,
-  wpFetchGenres,
-  getTitleText,
-  getReleaseYear,
-  getRating,
-} from '@/lib/wp';
+import SeriesCard, { type SeriesCardData } from '@/components/SeriesCard';
+import { wpFetchSeries, getPosterUrl, wpFetchGenres, getTitleText } from '@/lib/wp';
 
-type MoviesSearchParams = {
+type SeriesSearchParams = {
   q?: string | string[];
   page?: string | string[];
 };
 
-type MoviesPageProps = {
-  searchParams?: Promise<MoviesSearchParams>;
+type SeriesPageProps = {
+  searchParams?: Promise<SeriesSearchParams>;
 };
 
 function coerceSearchParam(value?: string | string[]): string {
@@ -24,27 +17,27 @@ function coerceSearchParam(value?: string | string[]): string {
   return value ?? '';
 }
 
-export default async function MoviesPage({ searchParams }: MoviesPageProps) {
+export default async function SeriesPage({ searchParams }: SeriesPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
 
   const searchQuery = coerceSearchParam(resolvedSearchParams.q).trim();
   const currentPage = Number(coerceSearchParam(resolvedSearchParams.page) || '1') || 1;
   const perPage = 12;
 
-  const result = await wpFetchMovies({
+  const result = await wpFetchSeries({
     q: searchQuery,
     page: currentPage,
     perPage,
   });
 
   // Fetch all media and genres in parallel
-  const mediaPromises = result.data.map(movie => getPosterUrl(movie.featured_media));
+  const mediaPromises = result.data.map(series => getPosterUrl(series.featured_media));
   const posterUrls = await Promise.all(mediaPromises);
 
   const allGenreIds = new Set<number>();
-  for (const movie of result.data) {
-    if (movie.genre) {
-      for (const genreId of movie.genre) {
+  for (const series of result.data) {
+    if (series.genre) {
+      for (const genreId of series.genre) {
         allGenreIds.add(genreId);
       }
     }
@@ -53,22 +46,20 @@ export default async function MoviesPage({ searchParams }: MoviesPageProps) {
   const genres = await wpFetchGenres(Array.from(allGenreIds));
   const genreMap = new Map(genres.map(g => [g.id, g.name]));
 
-  const movies: MovieCardData[] = result.data.map((movie, index) => ({
-    id: movie.id,
-    slug: movie.slug,
-    title: getTitleText(movie),
-    year: getReleaseYear(movie),
-    rating: getRating(movie),
+  const seriesList: SeriesCardData[] = result.data.map((series, index) => ({
+    id: series.id,
+    slug: series.slug,
+    title: getTitleText(series),
     posterUrl: posterUrls[index],
-    genres: movie.genre?.map(id => genreMap.get(id) ?? '').filter(Boolean) ?? [],
+    genres: series.genre?.map(id => genreMap.get(id) ?? '').filter(Boolean) ?? [],
   }));
 
   const totalPages = result.totalPages;
 
   return (
     <PageContainer
-      title="Movies"
-      description={searchQuery ? `Results for "${searchQuery}"` : 'Browse movies from WordPress.'}
+      title="Series"
+      description={searchQuery ? `Results for "${searchQuery}"` : 'Browse series from WordPress.'}
       rightSlot={
         <div className="text-xs text-slate-500 dark:text-slate-400">
           Page {currentPage} / {totalPages || 1}
@@ -76,31 +67,31 @@ export default async function MoviesPage({ searchParams }: MoviesPageProps) {
       }
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {movies.map(movie => (
-          <MovieCard key={movie.id} movie={movie} />
+        {seriesList.map(series => (
+          <SeriesCard key={series.id} series={series} />
         ))}
       </div>
 
       <div className="mt-8 flex items-center justify-between">
         <Link
-          href={buildMoviesHref({ q: searchQuery, page: Math.max(1, currentPage - 1) })}
+          href={buildSeriesHref({ q: searchQuery, page: Math.max(1, currentPage - 1) })}
           className={getPaginationButtonClass(currentPage <= 1)}
         >
           Previous
         </Link>
 
         <Link
-          href={buildMoviesHref({ q: searchQuery, page: currentPage + 1 })}
+          href={buildSeriesHref({ q: searchQuery, page: currentPage + 1 })}
           className={getPaginationButtonClass(totalPages > 0 && currentPage >= totalPages)}
         >
           Next
         </Link>
       </div>
 
-      {movies.length === 0 && (
+      {seriesList.length === 0 && (
         <div className="mt-8 rounded-2xl border border-black/10 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-800">
           <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            No movies found
+            No series found
           </div>
           <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             Try another search term.
@@ -111,7 +102,7 @@ export default async function MoviesPage({ searchParams }: MoviesPageProps) {
   );
 }
 
-function buildMoviesHref({ q, page }: { q?: string; page: number }): string {
+function buildSeriesHref({ q, page }: { q?: string; page: number }): string {
   const params = new URLSearchParams();
   const trimmed = typeof q === 'string' ? q.trim() : '';
 
@@ -119,7 +110,7 @@ function buildMoviesHref({ q, page }: { q?: string; page: number }): string {
   if (page > 1) params.set('page', String(page));
 
   const queryString = params.toString();
-  return queryString ? `/movies?${queryString}` : '/movies';
+  return queryString ? `/series?${queryString}` : '/series';
 }
 
 function getPaginationButtonClass(isDisabled: boolean): string {

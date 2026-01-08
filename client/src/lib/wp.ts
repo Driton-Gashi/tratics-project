@@ -1,31 +1,29 @@
-const WP_BASE_URL = process.env.NEXT_PUBLIC_WP_BASE_URL;
+const WP_BASE_URL = process.env.NEXT_PUBLIC_WP_BASE_URL || 'https://tratics.dritongashi.com';
+const WP_MOVIE_REST_BASE = process.env.NEXT_PUBLIC_WP_MOVIE_REST_BASE || 'movies';
+const WP_SERIES_REST_BASE = process.env.NEXT_PUBLIC_WP_SERIES_REST_BASE || 'series';
+const WP_EPISODE_REST_BASE = process.env.NEXT_PUBLIC_WP_EPISODE_REST_BASE || 'episodes';
 
-if (!WP_BASE_URL) {
-  throw new Error('NEXT_PUBLIC_WP_BASE_URL environment variable is required');
-}
+// ============================================================================
+// TYPES
+// ============================================================================
 
-export type WPTerm = {
+export type WPMediaDetails = {
   id: number;
-  name: string;
-  slug: string;
-  taxonomy: string;
-};
-
-export type WPFeaturedMedia = {
-  source_url?: string;
+  source_url: string;
   media_details?: {
-    sizes?: Record<string, { source_url: string }>;
+    sizes?: Record<string, { source_url: string; width?: number; height?: number }>;
   };
 };
 
 export type WPMovieACF = {
   release_year?: string | number;
+  runtime_minutes?: number;
   imdb_rating?: number;
-  // Add more as you define them in ACF:
-  // stream_type?: "none" | "iframe" | "link";
-  // stream_url?: string;
-  // stream_iframe?: string;
-  // trailer_url?: string;
+  trailer_url?: string;
+  stream_type?: 'iframe' | 'external' | 'none';
+  stream_url?: string;
+  stream_iframe?: string;
+  stream_provider?: string;
   [key: string]: unknown;
 };
 
@@ -37,49 +35,71 @@ export type WPMovie = {
   content?: { rendered: string };
   acf?: WPMovieACF;
   featured_media?: number;
-  _embedded?: {
-    'wp:featuredmedia'?: WPFeaturedMedia[];
-    'wp:term'?: WPTerm[][];
-  };
+  genre?: number[];
 };
 
-export type WPMoviesResponse = {
-  data: WPMovie[];
-  total: number;
-  totalPages: number;
+export type WPSeriesACF = {
+  [key: string]: unknown;
 };
 
-// type FetchMoviesParams = {
-//   q?: string;
-//   page?: number;
-//   perPage?: number;
-// };
+export type WPSeries = {
+  id: number;
+  slug: string;
+  title: { rendered: string };
+  excerpt?: { rendered: string };
+  content?: { rendered: string };
+  acf?: WPSeriesACF;
+  featured_media?: number;
+  genre?: number[];
+};
 
-function stripHtml(html: string): string {
+export type WPEpisodeACF = {
+  series?: number;
+  season_number?: number;
+  episode_number?: number;
+  runtime_minutes?: number;
+  air_date?: string; // Format: "YYYYMMDD"
+  stream_type?: 'iframe' | 'external' | 'none';
+  stream_url?: string;
+  stream_iframe?: string;
+  stream_provider?: string;
+  [key: string]: unknown;
+};
+
+export type WPEpisode = {
+  id: number;
+  slug: string;
+  title: { rendered: string };
+  excerpt?: { rendered: string };
+  content?: { rendered: string };
+  acf?: WPEpisodeACF;
+  featured_media?: number;
+};
+
+export type WPGenre = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim();
 }
 
-// function safeTrim(value: string | undefined | null): string {
-//   return typeof value === 'string' ? value.trim() : '';
-// }
-
-// function toNumber(value: string | null, fallback = 0): number {
-//   const n = Number(value);
-//   return Number.isFinite(n) ? n : fallback;
-// }
-
-export function getExcerptText(movie: WPMovie): string {
-  return stripHtml(movie.excerpt?.rendered ?? '');
+export function getTitleText(item: { title?: { rendered?: string } }): string {
+  return stripHtml(item.title?.rendered ?? '');
 }
 
-export function getGenres(movie: WPMovie): string[] {
-  const termGroups = movie._embedded?.['wp:term'] ?? [];
-  const allTerms = termGroups.flat();
-  return allTerms.filter(term => term.taxonomy === 'genre').map(term => term.name);
+export function getExcerptText(item: { excerpt?: { rendered?: string } }): string {
+  return stripHtml(item.excerpt?.rendered ?? '');
 }
 
-export function getReleaseYear(movie: WPMovie): number {
-  const year = movie.acf?.release_year;
+export function getReleaseYear(item: { acf?: { release_year?: string | number } }): number {
+  const year = item.acf?.release_year;
 
   if (typeof year === 'number' && Number.isFinite(year)) return year;
 
@@ -91,37 +111,76 @@ export function getReleaseYear(movie: WPMovie): number {
   return new Date().getFullYear();
 }
 
-export function getRating(movie: WPMovie): number | undefined {
-  const rating = movie.acf?.imdb_rating;
+export function getRating(item: { acf?: { imdb_rating?: number } }): number | undefined {
+  const rating = item.acf?.imdb_rating;
   if (typeof rating !== 'number') return undefined;
   if (rating < 0 || rating > 10) return undefined;
   return rating;
 }
 
-// function buildMoviesUrl(params?: FetchMoviesParams): URL {
-//   const url = new URL(`${WP_BASE_URL}/wp-json/wp/v2/movies`);
+export function getRuntime(item: { acf?: { runtime_minutes?: number } }): number | null {
+  const v = item.acf?.runtime_minutes;
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
 
-//   // Embedded resources: featured images + terms
-//   url.searchParams.set('_embed', '1');
+export function getTrailerUrl(item: { acf?: { trailer_url?: string } }): string | null {
+  const url = typeof item.acf?.trailer_url === 'string' ? item.acf.trailer_url.trim() : '';
+  return url ? url : null;
+}
 
-//   // Pagination
-//   const perPage = params?.perPage ?? 12;
-//   const page = params?.page ?? 1;
-//   url.searchParams.set('per_page', String(perPage));
-//   url.searchParams.set('page', String(page));
+export function getStreamType(
+  item: { acf?: { stream_type?: string } }
+): 'iframe' | 'external' | 'none' {
+  const t = item.acf?.stream_type;
+  if (t === 'iframe' || t === 'external') return t;
+  return 'none';
+}
 
-//   // Search
-//   const q = safeTrim(params?.q);
-//   if (q) url.searchParams.set('search', q);
+export function getStreamUrl(item: { acf?: { stream_url?: string } }): string | null {
+  const url = typeof item.acf?.stream_url === 'string' ? item.acf.stream_url.trim() : '';
+  return url ? url : null;
+}
 
-//   // Reduce payload
-//   url.searchParams.set('_fields', 'id,slug,title,excerpt,acf,featured_media,_embedded');
+export function getStreamIframe(item: { acf?: { stream_iframe?: string } }): string | null {
+  const html = typeof item.acf?.stream_iframe === 'string' ? item.acf.stream_iframe.trim() : '';
+  return html ? html : null;
+}
 
-//   return url;
-// }
+export function getStreamProvider(item: { acf?: { stream_provider?: string } }): string | null {
+  const provider = typeof item.acf?.stream_provider === 'string' ? item.acf.stream_provider.trim() : '';
+  return provider ? provider : null;
+}
 
-export function getFeaturedImageUrl(movie: WPMovie): string | null {
-  const media = movie._embedded?.['wp:featuredmedia']?.[0];
+// ============================================================================
+// MEDIA FETCHING
+// ============================================================================
+
+const mediaCache = new Map<number, WPMediaDetails>();
+
+export async function wpFetchMedia(mediaId: number): Promise<WPMediaDetails | null> {
+  if (!mediaId || mediaId <= 0) return null;
+
+  // Check cache
+  const cached = mediaCache.get(mediaId);
+  if (cached) return cached;
+
+  const url = `${WP_BASE_URL}/wp-json/wp/v2/media/${mediaId}?_fields=id,source_url,media_details`;
+
+  const res = await fetch(url, {
+    next: { revalidate: 3600 },
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  const media = (await res.json()) as WPMediaDetails;
+  mediaCache.set(mediaId, media);
+  return media;
+}
+
+export function getMediaUrl(media: WPMediaDetails | null): string | null {
   if (!media) return null;
 
   const sizes = media.media_details?.sizes;
@@ -135,17 +194,55 @@ export function getFeaturedImageUrl(movie: WPMovie): string | null {
   );
 }
 
-export async function wpFetchMovies(params?: { q?: string; page?: number; perPage?: number }) {
-  const url = new URL(`${WP_BASE_URL}/wp-json/wp/v2/movies`);
+export async function getPosterUrl(mediaId?: number): Promise<string | null> {
+  if (!mediaId) return null;
+  const media = await wpFetchMedia(mediaId);
+  return getMediaUrl(media);
+}
 
-  url.searchParams.set('_embed', '1');
+// ============================================================================
+// GENRE FETCHING
+// ============================================================================
+
+export async function wpFetchGenres(genreIds: number[]): Promise<WPGenre[]> {
+  if (!genreIds.length) return [];
+
+  const include = genreIds.join(',');
+  const url = `${WP_BASE_URL}/wp-json/wp/v2/genre?include=${include}&_fields=id,name,slug`;
+
+  const res = await fetch(url, {
+    next: { revalidate: 3600 },
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    return [];
+  }
+
+  return (await res.json()) as WPGenre[];
+}
+
+export function getGenreNames(genres: WPGenre[]): string[] {
+  return genres.map(g => g.name);
+}
+
+// ============================================================================
+// MOVIES
+// ============================================================================
+
+export async function wpFetchMovies(params?: {
+  q?: string;
+  page?: number;
+  perPage?: number;
+}): Promise<{ data: WPMovie[]; totalPages: number }> {
+  const url = new URL(`${WP_BASE_URL}/wp-json/wp/v2/${WP_MOVIE_REST_BASE}`);
+
+  url.searchParams.set('_fields', 'id,slug,title,excerpt,acf,featured_media,genre');
   url.searchParams.set('per_page', String(params?.perPage ?? 12));
   url.searchParams.set('page', String(params?.page ?? 1));
 
   const q = params?.q?.trim();
   if (q) url.searchParams.set('search', q);
-
-  url.searchParams.set('_fields', 'id,slug,title,excerpt,acf,featured_media,_links,_embedded');
 
   const res = await fetch(url.toString(), {
     next: { revalidate: 60 },
@@ -163,36 +260,7 @@ export async function wpFetchMovies(params?: { q?: string; page?: number; perPag
   return { data, totalPages };
 }
 
-export type WPMovieDetailsACF = {
-  release_year?: string | number;
-  runtime_minutes?: number;
-  imdb_rating?: number;
-  trailer_url?: string;
-  stream_type?: 'iframe' | 'link' | 'none' | '';
-  stream_url?: string;
-  stream_iframe?: string;
-  stream_provider?: string;
-  [key: string]: unknown;
-};
-
-export type WPMovieDetails = Omit<WPMovie, 'acf'> & {
-  acf?: WPMovieDetailsACF;
-  _embedded?: {
-    'wp:featuredmedia'?: WPFeaturedMedia[];
-    'wp:term'?: Array<
-      Array<{
-        id: number;
-        name: string;
-        slug: string;
-        taxonomy: string;
-      }>
-    >;
-  };
-};
-
-export async function wpFetchMovieBySlug(
-  slug: string | undefined | null
-): Promise<WPMovieDetails | null> {
+export async function wpFetchMovieBySlug(slug: string | undefined | null): Promise<WPMovie | null> {
   if (!slug || typeof slug !== 'string') {
     return null;
   }
@@ -202,11 +270,10 @@ export async function wpFetchMovieBySlug(
     return null;
   }
 
-  const base = `${WP_BASE_URL}/wp-json/wp/v2/movies`;
-  const url = new URL(base);
-
+  const url = new URL(`${WP_BASE_URL}/wp-json/wp/v2/${WP_MOVIE_REST_BASE}`);
   url.searchParams.set('slug', cleanSlug);
-  url.searchParams.set('_embed', '1');
+  url.searchParams.set('per_page', '1');
+  url.searchParams.set('_fields', 'id,slug,title,content,excerpt,acf,featured_media,genre');
 
   const res = await fetch(url.toString(), {
     next: { revalidate: 60 },
@@ -218,38 +285,152 @@ export async function wpFetchMovieBySlug(
     throw new Error(`WP API error: ${res.status} ${text}`);
   }
 
-  const data = (await res.json()) as WPMovieDetails[];
+  const data = (await res.json()) as WPMovie[];
 
   return data[0] ?? null;
 }
 
-export function getRuntime(movie: WPMovieDetails): number | null {
-  const v = movie.acf?.runtime_minutes;
-  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+// ============================================================================
+// SERIES
+// ============================================================================
+
+export async function wpFetchSeries(params?: {
+  q?: string;
+  page?: number;
+  perPage?: number;
+}): Promise<{ data: WPSeries[]; totalPages: number }> {
+  const url = new URL(`${WP_BASE_URL}/wp-json/wp/v2/${WP_SERIES_REST_BASE}`);
+
+  url.searchParams.set('_fields', 'id,slug,title,excerpt,acf,featured_media,genre');
+  url.searchParams.set('per_page', String(params?.perPage ?? 12));
+  url.searchParams.set('page', String(params?.page ?? 1));
+
+  const q = params?.q?.trim();
+  if (q) url.searchParams.set('search', q);
+
+  const res = await fetch(url.toString(), {
+    next: { revalidate: 60 },
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`WP API error: ${res.status} ${text}`);
+  }
+
+  const totalPages = Number(res.headers.get('X-WP-TotalPages') ?? '0');
+  const data = (await res.json()) as WPSeries[];
+
+  return { data, totalPages };
 }
 
-export function getTrailerUrl(movie: WPMovieDetails): string | null {
-  const url = typeof movie.acf?.trailer_url === 'string' ? movie.acf.trailer_url.trim() : '';
-  return url ? url : null;
+export async function wpFetchSeriesBySlug(
+  slug: string | undefined | null
+): Promise<WPSeries | null> {
+  if (!slug || typeof slug !== 'string') {
+    return null;
+  }
+
+  const cleanSlug = slug.trim();
+  if (!cleanSlug) {
+    return null;
+  }
+
+  const url = new URL(`${WP_BASE_URL}/wp-json/wp/v2/${WP_SERIES_REST_BASE}`);
+  url.searchParams.set('slug', cleanSlug);
+  url.searchParams.set('per_page', '1');
+  url.searchParams.set('_fields', 'id,slug,title,content,excerpt,acf,featured_media,genre');
+
+  const res = await fetch(url.toString(), {
+    next: { revalidate: 60 },
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`WP API error: ${res.status} ${text}`);
+  }
+
+  const data = (await res.json()) as WPSeries[];
+
+  return data[0] ?? null;
 }
 
-export function getStreamType(movie: WPMovieDetails): 'iframe' | 'link' | 'none' {
-  const t = movie.acf?.stream_type;
-  if (t === 'iframe' || t === 'link') return t;
-  return 'none';
+export async function wpFetchSeriesById(seriesId: number): Promise<WPSeries | null> {
+  if (!seriesId || seriesId <= 0) {
+    return null;
+  }
+
+  const url = `${WP_BASE_URL}/wp-json/wp/v2/${WP_SERIES_REST_BASE}/${seriesId}?_fields=id,slug,title,content,excerpt,acf,featured_media,genre`;
+
+  const res = await fetch(url, {
+    next: { revalidate: 60 },
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return (await res.json()) as WPSeries;
 }
 
-export function getStreamUrl(movie: WPMovieDetails): string | null {
-  const url = typeof movie.acf?.stream_url === 'string' ? movie.acf.stream_url.trim() : '';
-  return url ? url : null;
+// ============================================================================
+// EPISODES
+// ============================================================================
+
+export async function wpFetchEpisodes(): Promise<WPEpisode[]> {
+  const url = new URL(`${WP_BASE_URL}/wp-json/wp/v2/${WP_EPISODE_REST_BASE}`);
+  url.searchParams.set('per_page', '100');
+  url.searchParams.set('_fields', 'id,slug,title,excerpt,acf,featured_media');
+
+  const res = await fetch(url.toString(), {
+    next: { revalidate: 60 },
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`WP API error: ${res.status} ${text}`);
+  }
+
+  return (await res.json()) as WPEpisode[];
 }
 
-export function getStreamIframe(movie: WPMovieDetails): string | null {
-  const html = typeof movie.acf?.stream_iframe === 'string' ? movie.acf.stream_iframe.trim() : '';
-  return html ? html : null;
+export function filterEpisodesBySeries(episodes: WPEpisode[], seriesId: number): WPEpisode[] {
+  return episodes.filter(e => e.acf?.series === seriesId);
 }
 
-// Minimal allowlist so you don't embed random websites.
+export function sortEpisodes(episodes: WPEpisode[]): WPEpisode[] {
+  return [...episodes].sort((a, b) => {
+    const seasonA = a.acf?.season_number ?? 0;
+    const seasonB = b.acf?.season_number ?? 0;
+    if (seasonA !== seasonB) return seasonA - seasonB;
+
+    const episodeA = a.acf?.episode_number ?? 0;
+    const episodeB = b.acf?.episode_number ?? 0;
+    return episodeA - episodeB;
+  });
+}
+
+export function groupEpisodesBySeason(episodes: WPEpisode[]): Map<number, WPEpisode[]> {
+  const grouped = new Map<number, WPEpisode[]>();
+
+  for (const episode of episodes) {
+    const season = episode.acf?.season_number ?? 1;
+    if (!grouped.has(season)) {
+      grouped.set(season, []);
+    }
+    grouped.get(season)!.push(episode);
+  }
+
+  return grouped;
+}
+
+// ============================================================================
+// IFRAME SANITIZATION
+// ============================================================================
+
 const ALLOWED_IFRAME_HOSTS = new Set([
   'www.youtube.com',
   'youtube.com',
@@ -258,7 +439,6 @@ const ALLOWED_IFRAME_HOSTS = new Set([
 ]);
 
 export function sanitizeAndValidateIframe(iframeHtml: string): string | null {
-  // Very small sanitizer: we only accept a single iframe tag and extract src.
   const match = iframeHtml.match(/<iframe[^>]*src=["']([^"']+)["'][^>]*><\/iframe>/i);
   const src = match?.[1] ?? null;
   if (!src) return null;
@@ -272,8 +452,6 @@ export function sanitizeAndValidateIframe(iframeHtml: string): string | null {
 
   if (!ALLOWED_IFRAME_HOSTS.has(host)) return null;
 
-  // Rebuild a safe iframe with controlled attributes.
-  // Use 100% width and responsive height through wrapper.
   const safe = `<iframe
     src="${src}"
     title="Video player"

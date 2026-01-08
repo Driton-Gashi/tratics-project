@@ -1,18 +1,17 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PageContainer from '@/components/PageContainer';
+import StreamPlayer, { createStreamPlayerProps } from '@/components/StreamPlayer';
 import {
   wpFetchMovieBySlug,
-  getFeaturedImageUrl,
-  getGenres,
+  getPosterUrl,
+  wpFetchGenres,
+  getGenreNames,
+  getTitleText,
   getReleaseYear,
   getRating,
   getRuntime,
   getTrailerUrl,
-  getStreamType,
-  getStreamUrl,
-  getStreamIframe,
-  sanitizeAndValidateIframe,
 } from '@/lib/wp';
 
 export default async function MovieDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -26,18 +25,19 @@ export default async function MovieDetailsPage({ params }: { params: Promise<{ s
 
   if (!movie) notFound();
 
-  const title = movie.title?.rendered ?? 'Untitled';
+  const title = getTitleText(movie);
   const year = getReleaseYear(movie);
   const rating = getRating(movie);
   const runtime = getRuntime(movie);
-  const posterUrl = getFeaturedImageUrl(movie);
-  const genres = getGenres(movie);
+  const posterUrl = await getPosterUrl(movie.featured_media);
   const trailerUrl = getTrailerUrl(movie);
 
-  const streamType = getStreamType(movie);
-  const streamUrl = getStreamUrl(movie);
-  const rawIframe = getStreamIframe(movie);
-  const safeIframe = rawIframe ? sanitizeAndValidateIframe(rawIframe) : null;
+  // Fetch genres
+  const genreIds = movie.genre ?? [];
+  const genres = await wpFetchGenres(genreIds);
+  const genreNames = getGenreNames(genres);
+
+  const streamProps = createStreamPlayerProps(movie);
 
   return (
     <PageContainer title={title} description={`${year}${runtime ? ` • ${runtime} min` : ''}`}>
@@ -82,9 +82,9 @@ export default async function MovieDetailsPage({ params }: { params: Promise<{ s
                 ) : null}
               </div>
 
-              {genres.length > 0 ? (
+              {genreNames.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {genres.slice(0, 6).map(g => (
+                  {genreNames.slice(0, 6).map(g => (
                     <span
                       key={g}
                       className="rounded-full bg-slate-900/5 px-2.5 py-1 text-[11px] text-slate-700 dark:bg-slate-700/50 dark:text-slate-300"
@@ -125,60 +125,16 @@ export default async function MovieDetailsPage({ params }: { params: Promise<{ s
             <div className="border-b border-black/10 px-5 py-4 dark:border-white/10">
               <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Watch</div>
               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {streamType === 'iframe'
+                {streamProps.streamType === 'iframe'
                   ? 'Embedded player'
-                  : streamType === 'link'
+                  : streamProps.streamType === 'external'
                     ? 'External link'
                     : 'Not available'}
               </div>
             </div>
 
             <div className="p-5">
-              {streamType === 'iframe' ? (
-                safeIframe ? (
-                  <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
-                    <div
-                      className="absolute inset-0"
-                      // eslint-disable-next-line react/no-danger
-                      dangerouslySetInnerHTML={{ __html: safeIframe }}
-                    />
-                    <style
-                      // eslint-disable-next-line react/no-danger
-                      dangerouslySetInnerHTML={{
-                        __html: `
-                          .aspect-video iframe {
-                            width: 100%;
-                            height: 100%;
-                          }
-                        `,
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-700/50 dark:text-slate-300">
-                    This embed is missing or not allowed. Add a YouTube/Vimeo iframe in WordPress.
-                  </div>
-                )
-              ) : streamType === 'link' ? (
-                streamUrl ? (
-                  <a
-                    href={streamUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
-                  >
-                    Watch now
-                  </a>
-                ) : (
-                  <div className="rounded-xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-700/50 dark:text-slate-300">
-                    Streaming link is missing. Add <code>stream_url</code> in WordPress.
-                  </div>
-                )
-              ) : (
-                <div className="rounded-xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-700/50 dark:text-slate-300">
-                  No streaming available for this title.
-                </div>
-              )}
+              <StreamPlayer {...streamProps} />
             </div>
           </div>
 
@@ -231,10 +187,7 @@ export default async function MovieDetailsPage({ params }: { params: Promise<{ s
               <div className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-slate-700/50">
                 <dt className="text-xs text-slate-500 dark:text-slate-400">Provider</dt>
                 <dd className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {typeof movie.acf?.stream_provider === 'string' &&
-                  movie.acf.stream_provider.trim()
-                    ? movie.acf.stream_provider
-                    : '—'}
+                  {streamProps.streamProvider ?? '—'}
                 </dd>
               </div>
             </dl>
