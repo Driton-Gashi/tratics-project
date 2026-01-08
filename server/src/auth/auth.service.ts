@@ -52,13 +52,28 @@ export class AuthService {
         throw new CustomError('Failed to create user', 500);
       }
 
-      return users[0] as User;
+      const userRow = users[0];
+      if (!userRow) {
+        throw new CustomError('Failed to create user', 500);
+      }
+
+      // Map to User type with defaults for missing columns
+      return {
+        id: userRow.id,
+        email: userRow.email,
+        username: userRow.username,
+        password_hash: userRow.password_hash,
+        role: (userRow.role as 'user' | 'admin') || 'user',
+        is_active: userRow.is_active ?? 1,
+        created_at: userRow.created_at,
+        updated_at: userRow.updated_at,
+      } as User;
     } catch (error) {
       // Re-throw CustomError as-is
       if (error instanceof CustomError) {
         throw error;
       }
-      
+
       // Log database errors with more detail
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Database error during registration:', {
@@ -68,10 +83,13 @@ export class AuthService {
         sqlState: (error as any)?.sqlState,
         sqlMessage: (error as any)?.sqlMessage,
       });
-      
+
       // Provide helpful error messages for common database issues
       if ((error as any)?.code === 'ER_NO_SUCH_TABLE') {
-        throw new CustomError('Database table does not exist. Please run the database migration.', 500);
+        throw new CustomError(
+          'Database table does not exist. Please run the database migration.',
+          500
+        );
       }
       if ((error as any)?.code === 'ECONNREFUSED' || (error as any)?.code === 'ENOTFOUND') {
         throw new CustomError('Cannot connect to database. Check your database credentials.', 500);
@@ -79,13 +97,17 @@ export class AuthService {
       if ((error as any)?.code === 'ER_ACCESS_DENIED_ERROR') {
         throw new CustomError('Database access denied. Check your database credentials.', 500);
       }
-      
+
       // Generic database error
       throw new CustomError(`Database error: ${errorMessage}`, 500);
     }
   }
 
-  async login(data: LoginRequest, userAgent: string | undefined, ipAddress: string | undefined): Promise<{
+  async login(
+    data: LoginRequest,
+    userAgent: string | undefined,
+    ipAddress: string | undefined
+  ): Promise<{
     user: User;
     accessToken: string;
     refreshToken: string;
@@ -102,22 +124,45 @@ export class AuthService {
     const invalidCredentialsError = new CustomError('Invalid credentials', 401);
 
     if (users.length === 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth] Login attempt: User not found for email:', email);
+      }
       throw invalidCredentialsError;
     }
 
-    const user = users[0] as User;
-
-    // Check if user is active
-    if (user.is_active !== 1) {
+    const userRow = users[0];
+    if (!userRow) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth] Login attempt: User row is null for email:', email);
+      }
       throw invalidCredentialsError;
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Auth] Verifying password for user:', userRow.id, userRow.email);
+    }
+
+    const isValidPassword = await bcrypt.compare(password, userRow.password_hash);
 
     if (!isValidPassword) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth] Login attempt: Invalid password for email:', email);
+      }
       throw invalidCredentialsError;
     }
+
+    // Map user row to User type (default role to 'user' since column doesn't exist in DB)
+    const user: User = {
+      id: userRow.id,
+      email: userRow.email,
+      username: userRow.username,
+      password_hash: userRow.password_hash,
+      role: (userRow.role as 'user' | 'admin') || 'user',
+      is_active: userRow.is_active ?? 1,
+      created_at: userRow.created_at,
+      updated_at: userRow.updated_at,
+    };
 
     // Generate tokens
     const jwtPayload: JWTPayload = {
@@ -131,11 +176,9 @@ export class AuthService {
     });
 
     // Generate refresh token
-    const refreshToken = jwt.sign(
-      { userId: user.id, type: 'refresh' },
-      env.jwtSecret,
-      { expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d` }
-    );
+    const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, env.jwtSecret, {
+      expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d`,
+    });
 
     // Hash refresh token for storage
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
@@ -169,7 +212,7 @@ export class AuthService {
 
     try {
       const decoded = jwt.verify(refreshToken, env.jwtSecret) as { userId: number; type?: string };
-      
+
       if (decoded.type !== 'refresh') {
         return;
       }
@@ -187,16 +230,30 @@ export class AuthService {
   }
 
   async getUserById(userId: number): Promise<User | null> {
-    const [users] = await pool.execute<mysql2.RowDataPacket[]>(
-      'SELECT * FROM users WHERE id = ? AND is_active = 1',
-      [userId]
-    );
+    const [users] = await pool.execute<mysql2.RowDataPacket[]>('SELECT * FROM users WHERE id = ?', [
+      userId,
+    ]);
 
     if (users.length === 0) {
       return null;
     }
 
-    return users[0] as User;
+    const userRow = users[0];
+    if (!userRow) {
+      return null;
+    }
+
+    // Map to User type with defaults for missing columns
+    return {
+      id: userRow.id,
+      email: userRow.email,
+      username: userRow.username,
+      password_hash: userRow.password_hash,
+      role: (userRow.role as 'user' | 'admin') || 'user',
+      is_active: userRow.is_active ?? 1,
+      created_at: userRow.created_at,
+      updated_at: userRow.updated_at,
+    } as User;
   }
 
   verifyAccessToken(token: string): JWTPayload {

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PageContainer from '@/components/PageContainer';
 import StreamPlayer, { createStreamPlayerProps } from '@/components/StreamPlayer';
+import ListToggleButton from '@/components/ListToggleButton';
 import {
   wpFetchEpisodes,
   wpFetchSeriesById,
@@ -93,11 +94,28 @@ export default async function EpisodeWatchPage({ params }: { params: Promise<{ s
                 )}
               </div>
 
-              <div className="mt-4 flex flex-col gap-2">
+              <div className="mt-4 space-y-2">
+                <div className="flex gap-2">
+                  <ListToggleButton
+                    listType="watchlist"
+                    itemType="episode"
+                    wpPostId={episode.id}
+                    wpSlug={episode.slug}
+                    className="flex-1"
+                  />
+                  <ListToggleButton
+                    listType="favorite"
+                    itemType="episode"
+                    wpPostId={episode.id}
+                    wpSlug={episode.slug}
+                    className="flex-1"
+                  />
+                </div>
+
                 {seriesSlug && seriesTitle && (
                   <Link
                     href={`/series/${seriesSlug}`}
-                    className="inline-flex items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    className="inline-flex w-full items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                   >
                     View Series: {seriesTitle}
                   </Link>

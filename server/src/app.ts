@@ -7,6 +7,7 @@ import { notFoundHandler } from './middleware/notFound';
 import cimerRoutes from './routes/route-example';
 import authRoutes from './auth/auth.routes';
 import docsRoutes from './routes/docs.routes';
+import meRoutes from './me/me.routes';
 
 const app = express();
 
@@ -64,6 +65,7 @@ app.get('/', (_req, res) => {
 app.use('/docs', docsRoutes);
 app.use('/api/cimerat', cimerRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/me', meRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

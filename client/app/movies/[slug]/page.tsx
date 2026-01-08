@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PageContainer from '@/components/PageContainer';
 import StreamPlayer, { createStreamPlayerProps } from '@/components/StreamPlayer';
+import ListToggleButton from '@/components/ListToggleButton';
 import {
   wpFetchMovieBySlug,
   getPosterUrl,
@@ -106,6 +107,23 @@ export default async function MovieDetailsPage({ params }: { params: Promise<{ s
                     Watch trailer
                   </a>
                 ) : null}
+
+                <div className="flex gap-2">
+                  <ListToggleButton
+                    listType="watchlist"
+                    itemType="movie"
+                    wpPostId={movie.id}
+                    wpSlug={movie.slug}
+                    className="flex-1"
+                  />
+                  <ListToggleButton
+                    listType="favorite"
+                    itemType="movie"
+                    wpPostId={movie.id}
+                    wpSlug={movie.slug}
+                    className="flex-1"
+                  />
+                </div>
 
                 <Link
                   href="/movies"
