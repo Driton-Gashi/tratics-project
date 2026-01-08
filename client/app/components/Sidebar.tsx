@@ -14,7 +14,6 @@ const GROUPS: NavGroup[] = [
       { label: 'Home', href: '/' },
       { label: 'Movies', href: '/movies' },
       { label: 'Series', href: '/series' },
-      { label: 'Collections', href: '/collections' },
     ],
   },
   {
@@ -66,8 +65,9 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             M
           </span>
           <div className="leading-tight">
-            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">MovieApp</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">Navigation</div>
+            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Movie App
+            </div>
           </div>
         </Link>
       </div>
