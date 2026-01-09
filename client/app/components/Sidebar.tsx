@@ -41,7 +41,31 @@ type SidebarProps = {
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isAuthenticated, refreshAuth } = useAuth();
+
+  const handleLogout = async () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiPath = apiUrl.includes('/api') ? '' : '/api';
+
+    try {
+      await fetch(`${apiUrl}${apiPath}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // Logout is idempotent; ignore network errors
+    }
+
+    try {
+      localStorage.setItem('auth-state', 'logged-out');
+      window.dispatchEvent(new Event('auth-changed'));
+    } catch {
+      // Ignore storage access issues
+    }
+
+    refreshAuth();
+    onClose();
+  };
 
   // Close drawer on route change (mobile)
   useEffect(() => {
@@ -102,6 +126,41 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             </div>
           </div>
         ))}
+
+        <div className="mt-6 border-t border-black/10 pt-4 dark:border-white/10 md:hidden">
+          {!isAuthenticated ? (
+            <div className="flex flex-col gap-2 px-1">
+              <Link
+                href="/login"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+              >
+                Login
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+              >
+                Register
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 px-1">
+              <Link
+                href="/me"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+              >
+                Profile
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+              >
+                Log out
+              </button>
+            </div>
+          )}
+        </div>
       </nav>
 
       <div className="border-t border-black/10 p-3 dark:border-white/10">

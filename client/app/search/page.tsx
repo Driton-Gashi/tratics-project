@@ -18,6 +18,7 @@ import {
 
 type SearchParams = {
   q?: string | string[];
+  genre?: string | string[];
 };
 
 type SearchPageProps = {
@@ -27,6 +28,12 @@ type SearchPageProps = {
 function coerceSearchParam(value?: string | string[]): string {
   if (Array.isArray(value)) return value[0] ?? '';
   return value ?? '';
+}
+
+function coerceNumberParam(value?: string | string[]): number | undefined {
+  const str = coerceSearchParam(value);
+  const num = Number(str);
+  return Number.isFinite(num) && num > 0 ? num : undefined;
 }
 
 function filterGenres(genres: WPGenre[], query: string): WPGenre[] {
@@ -43,9 +50,11 @@ function filterGenres(genres: WPGenre[], query: string): WPGenre[] {
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const searchQuery = coerceSearchParam(resolvedSearchParams.q).trim();
+  const genreId = coerceNumberParam(resolvedSearchParams.genre);
   const hasQuery = searchQuery.length > 0;
+  const hasGenreFilter = typeof genreId === 'number';
 
-  if (!hasQuery) {
+  if (!hasQuery && !hasGenreFilter) {
     return (
       <PageContainer title="Search" description="Search movies, series, episodes, and genres.">
         <div className="rounded-2xl border border-black/10 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-800">
@@ -60,18 +69,33 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     );
   }
 
-  const [moviesResult, seriesResult, episodes, allGenres] = await Promise.all([
-    wpFetchMovies({ q: searchQuery, perPage: 12, page: 1 }),
-    wpFetchSeries({ q: searchQuery, perPage: 12, page: 1 }),
+  const [moviesResult, seriesResult, episodes, allGenres, selectedGenres] = await Promise.all([
+    wpFetchMovies({
+      q: hasQuery ? searchQuery : undefined,
+      genre: hasGenreFilter ? genreId : undefined,
+      perPage: 12,
+      page: 1,
+    }),
+    wpFetchSeries({
+      q: hasQuery ? searchQuery : undefined,
+      genre: hasGenreFilter ? genreId : undefined,
+      perPage: 12,
+      page: 1,
+    }),
     wpFetchEpisodes(),
     wpFetchAllGenres(),
+    hasGenreFilter ? wpFetchGenres([genreId]) : Promise.resolve([] as WPGenre[]),
   ]);
 
-  const filteredEpisodes = episodes
-    .filter(ep => getTitleText(ep).toLowerCase().includes(searchQuery.toLowerCase()))
-    .slice(0, 12);
+  const filteredEpisodes = hasQuery
+    ? episodes
+        .filter(ep => getTitleText(ep).toLowerCase().includes(searchQuery.toLowerCase()))
+        .slice(0, 12)
+    : [];
 
-  const matchedGenres = filterGenres(allGenres, searchQuery).slice(0, 12);
+  const matchedGenres = hasQuery ? filterGenres(allGenres, searchQuery).slice(0, 12) : [];
+  const selectedGenre = selectedGenres[0];
+  const genresToShow = hasGenreFilter && selectedGenre ? [selectedGenre] : matchedGenres;
 
   const moviePosterUrls = await Promise.all(
     moviesResult.data.map(movie => getPosterUrl(movie.featured_media))
@@ -134,8 +158,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     posterUrl: episodePosterUrls[index],
   }));
 
+  const description = selectedGenre
+    ? `Browsing genre "${selectedGenre.name}"`
+    : `Results for "${searchQuery}"`;
+
   return (
-    <PageContainer title="Search" description={`Results for "${searchQuery}"`}>
+    <PageContainer title="Search" description={description}>
       <div className="space-y-10">
         <section>
           <div className="mb-4 flex items-center justify-between">
@@ -149,9 +177,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <MovieCard key={movie.id} movie={movie} />
             ))}
           </div>
-          {movies.length === 0 && (
-            <EmptyState message="No movies found." />
-          )}
+          {movies.length === 0 && <EmptyState message="No movies found." />}
         </section>
 
         <section>
@@ -166,70 +192,65 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <SeriesCard key={series.id} series={series} />
             ))}
           </div>
-          {seriesList.length === 0 && (
-            <EmptyState message="No series found." />
-          )}
+          {seriesList.length === 0 && <EmptyState message="No series found." />}
         </section>
 
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Episodes
-            </h2>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              {episodeCards.length} results
-            </div>
-          </div>
-          <div className="space-y-3">
-            {episodeCards.map(episode => (
-              <EpisodeCard key={episode.id} episode={episode} />
-            ))}
-          </div>
-          {episodeCards.length === 0 && (
-            <EmptyState message="No episodes found." />
-          )}
-        </section>
-
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Genres</h2>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              {matchedGenres.length} results
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {matchedGenres.map(genre => (
-              <div
-                key={genre.id}
-                className="rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-slate-800"
-              >
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {genre.name}
-                </div>
-                <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {genre.slug}
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-                  <Link
-                    href={`/movies?genre=${genre.id}`}
-                    className="rounded-lg border border-black/10 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
-                  >
-                    Movies
-                  </Link>
-                  <Link
-                    href={`/series?genre=${genre.id}`}
-                    className="rounded-lg border border-black/10 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
-                  >
-                    Series
-                  </Link>
-                </div>
+        {!hasGenreFilter && (
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Episodes</h2>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                {episodeCards.length} results
               </div>
-            ))}
-          </div>
-          {matchedGenres.length === 0 && (
-            <EmptyState message="No genres found." />
-          )}
-        </section>
+            </div>
+            <div className="space-y-3">
+              {episodeCards.map(episode => (
+                <EpisodeCard key={episode.id} episode={episode} />
+              ))}
+            </div>
+            {episodeCards.length === 0 && <EmptyState message="No episodes found." />}
+          </section>
+        )}
+        {!hasGenreFilter && (
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Genres</h2>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                {genresToShow.length} results
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {genresToShow.map(genre => (
+                <div
+                  key={genre.id}
+                  className="rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-slate-800"
+                >
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {genre.name}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    {genre.slug}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+                    <Link
+                      href={`/movies?genre=${genre.id}`}
+                      className="rounded-lg border border-black/10 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Movies
+                    </Link>
+                    <Link
+                      href={`/series?genre=${genre.id}`}
+                      className="rounded-lg border border-black/10 bg-white px-2.5 py-1 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Series
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {genresToShow.length === 0 && <EmptyState message="No genres found." />}
+          </section>
+        )}
       </div>
     </PageContainer>
   );

@@ -91,9 +91,9 @@ export default async function HomePage() {
   const recentSeriesCards: PosterCardData[] = recentSeries.map((s, i) =>
     seriesToPosterCard(s, recentSeriesPosters[i])
   );
-
-  // Featured hero item (highest rated movie or series)
-  const featuredMovie = trendingMovies[0];
+  // eslint-disable-next-line react-hooks/purity
+  const randomIndex = Math.floor(Math.random() * trendingMovies.length);
+  const featuredMovie = trendingMovies[randomIndex];
   const featuredSeries = trendingSeries[0];
   const featuredItem: HomeHeroData | null =
     featuredMovie && getRating(featuredMovie)
@@ -103,7 +103,7 @@ export default async function HomePage() {
           excerpt: getExcerptText(featuredMovie) || 'No description yet.',
           year: getReleaseYear(featuredMovie),
           rating: getRating(featuredMovie),
-          posterUrl: trendingMoviePosters[0],
+          posterUrl: trendingMoviePosters[randomIndex],
           href: `/movies/${featuredMovie.slug}`,
         }
       : featuredSeries

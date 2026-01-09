@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/src/contexts/ThemeProvider';
 import { useAuth } from '@/src/contexts/AuthProvider';
+import { wpFetchAllGenres, type WPGenre } from '@/lib/wp';
 
 type HeaderProps = {
   onOpenSidebar: () => void;
@@ -41,7 +42,12 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
   const urlQuery = searchParams?.get('q') ?? '';
   const [query, setQuery] = useState(urlQuery);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isGenresOpen, setIsGenresOpen] = useState(false);
+  const [genres, setGenres] = useState<WPGenre[]>([]);
+  const [isGenresLoading, setIsGenresLoading] = useState(false);
+  const [genresError, setGenresError] = useState<string | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const genresMenuRef = useRef<HTMLDivElement | null>(null);
   const prevUrlQueryRef = useRef(urlQuery);
 
   // Sync URL query to local state when URL changes externally
@@ -51,21 +57,26 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
   }
 
   useEffect(() => {
-    if (!isAccountOpen) return;
+    if (!isAccountOpen && !isGenresOpen) return;
 
     const onClickOutside = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
       if (
         accountMenuRef.current &&
-        event.target instanceof Node &&
-        !accountMenuRef.current.contains(event.target)
+        !accountMenuRef.current.contains(target)
       ) {
         setIsAccountOpen(false);
+      }
+      if (genresMenuRef.current && !genresMenuRef.current.contains(target)) {
+        setIsGenresOpen(false);
       }
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsAccountOpen(false);
+        setIsGenresOpen(false);
       }
     };
 
@@ -76,7 +87,26 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
       document.removeEventListener('mousedown', onClickOutside);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [isAccountOpen]);
+  }, [isAccountOpen, isGenresOpen]);
+
+  useEffect(() => {
+    if (!isGenresOpen || genres.length > 0 || isGenresLoading) return;
+
+    const loadGenres = async () => {
+      try {
+        setIsGenresLoading(true);
+        setGenresError(null);
+        const data = await wpFetchAllGenres();
+        setGenres(data);
+      } catch (error) {
+        setGenresError('Failed to load genres.');
+      } finally {
+        setIsGenresLoading(false);
+      }
+    };
+
+    loadGenres();
+  }, [genres.length, isGenresLoading, isGenresOpen]);
 
   const handleLogout = async () => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -175,6 +205,47 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
 
         {/* User actions */}
         <div className="flex items-center gap-2">
+          <div className="relative" ref={genresMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsGenresOpen(prev => !prev)}
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100 dark:focus:ring-slate-400"
+              aria-haspopup="menu"
+              aria-expanded={isGenresOpen}
+            >
+              Genres
+            </button>
+
+            {isGenresOpen && (
+              <div className="absolute right-0 mt-2 w-64 rounded-xl border border-black/10 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-slate-900">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Browse by Genre
+                </div>
+                {isGenresLoading ? (
+                  <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                    Loading genres...
+                  </div>
+                ) : genresError ? (
+                  <div className="py-4 text-center text-xs text-rose-600 dark:text-rose-400">
+                    {genresError}
+                  </div>
+                ) : (
+                  <div className="flex max-h-64 flex-wrap gap-2 overflow-y-auto pr-1">
+                    {genres.map(genre => (
+                      <Link
+                        key={genre.id}
+                        href={`/search?genre=${genre.id}`}
+                        onClick={() => setIsGenresOpen(false)}
+                        className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                      >
+                        {genre.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           {/* Theme toggle */}
           <button
             type="button"

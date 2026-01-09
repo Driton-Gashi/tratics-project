@@ -37,7 +37,7 @@ export default function SeriesCard({ series }: { series: SeriesCardData }) {
       href={`/series/${series.slug}`}
       className="group overflow-hidden rounded-2xl border border-black/10 bg-white transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:hover:bg-slate-700"
     >
-      <div className="relative aspect-[16/10] w-full bg-slate-100 dark:bg-slate-800">
+      <div className="relative aspect-square w-full bg-slate-100 dark:bg-slate-800">
         {poster ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

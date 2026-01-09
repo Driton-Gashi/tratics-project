@@ -37,7 +37,7 @@ export default function PosterCard({ item }: { item: PosterCardData }) {
       href={href}
       className="group relative block shrink-0 snap-start transition-transform hover:scale-105"
     >
-      <div className="relative aspect-[2/3] w-40 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800 sm:w-48">
+      <div className="relative aspect-[3/4] w-40 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800 sm:w-48">
         {poster ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -61,7 +61,7 @@ export default function PosterCard({ item }: { item: PosterCardData }) {
         )}
       </div>
 
-      <div className="mt-2 max-w-[10rem] sm:max-w-[12rem]">
+      <div className="mt-2 max-w-40 sm:max-w-48">
         <div className="truncate text-sm font-semibold text-slate-900 group-hover:underline dark:text-slate-100">
           {item.title}
         </div>

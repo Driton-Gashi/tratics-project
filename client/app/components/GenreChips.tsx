@@ -25,7 +25,7 @@ export default function GenreChips({ genres }: GenreChipsProps) {
         {genres.map(genre => (
           <Link
             key={genre.id}
-            href={`/movies?genre=${genre.id}`}
+            href={`/search?genre=${genre.id}`}
             className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
           >
             {genre.name}
