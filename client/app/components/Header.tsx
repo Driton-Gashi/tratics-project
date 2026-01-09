@@ -106,12 +106,14 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
     e.preventDefault();
 
     const trimmed = query.trim();
-    const params = new URLSearchParams(searchParams?.toString());
+    const params = new URLSearchParams();
 
-    if (!trimmed) params.delete('q');
-    else params.set('q', trimmed);
+    if (trimmed) {
+      params.set('q', trimmed);
+    }
 
-    router.push(`/movies?${params.toString()}`);
+    const queryString = params.toString();
+    router.push(queryString ? `/search?${queryString}` : '/search');
   };
 
   return (
@@ -137,14 +139,14 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search movies..."
+              placeholder="Search movies, series, episodes, genres..."
               className={cn(
                 'w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 pr-12 text-sm text-slate-900 outline-none',
                 'placeholder:text-slate-400',
                 'focus:ring-2 focus:ring-slate-900/20',
                 'dark:border-white/10 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-slate-400/20'
               )}
-              aria-label="Search movies"
+              aria-label="Search movies, series, episodes, genres"
             />
 
             {/* Clear (only when typing) */}
