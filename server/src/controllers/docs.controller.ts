@@ -347,6 +347,82 @@ export class DocsController {
             },
           },
         },
+        {
+          method: 'GET',
+          path: '/health/check',
+          description: 'Verify database connectivity and route availability',
+          authentication: false,
+          responses: {
+            '200': {
+              description: 'Database connected and routes available',
+              body: {
+                success: true,
+                message: 'Database connected and API routes available',
+                timestamp: 'ISO 8601 timestamp',
+                checks: {
+                  database: {
+                    ok: true,
+                    latencyMs: 'number',
+                  },
+                  endpoints: {
+                    ok: true,
+                    routes: 'object',
+                  },
+                },
+              },
+            },
+            '503': {
+              description: 'Database connection failed',
+              body: {
+                success: false,
+                message: 'Database connection failed',
+                timestamp: 'ISO 8601 timestamp',
+                checks: {
+                  database: {
+                    ok: false,
+                    error: 'string',
+                  },
+                  endpoints: {
+                    ok: true,
+                    routes: 'object',
+                  },
+                },
+              },
+            },
+          },
+          example: {
+            request: {
+              url: `${baseUrl}/health/check`,
+              method: 'GET',
+            },
+            response: {
+              status: 200,
+              body: {
+                success: true,
+                message: 'Database connected and API routes available',
+                timestamp: '2024-01-07T23:45:00.000Z',
+                checks: {
+                  database: {
+                    ok: true,
+                    latencyMs: 12,
+                  },
+                  endpoints: {
+                    ok: true,
+                    routes: {
+                      auth: '/api/auth',
+                      me: '/api/me',
+                      admin: '/api/admin',
+                      analytics: '/api/analytics',
+                      cimerat: '/api/cimerat',
+                      docs: '/docs',
+                      health: '/health',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       ],
     });
   }

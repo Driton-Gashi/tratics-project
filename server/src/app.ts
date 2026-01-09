@@ -10,6 +10,7 @@ import docsRoutes from './routes/docs.routes';
 import meRoutes from './me/me.routes';
 import adminRoutes from './admin/admin.routes';
 import analyticsRoutes from './analytics/analytics.routes';
+import pool from './db/pool';
 
 const app = express();
 
@@ -44,6 +45,60 @@ app.get('/health', (_req, res) => {
     message: 'Server is healthy',
     timestamp: new Date().toISOString(),
   });
+});
+
+// Readiness check for DB + route availability
+app.get('/health/check', async (_req, res) => {
+  const timestamp = new Date().toISOString();
+  const endpoints = {
+    auth: '/api/auth',
+    me: '/api/me',
+    admin: '/api/admin',
+    analytics: '/api/analytics',
+    cimerat: '/api/cimerat',
+    docs: '/docs',
+    health: '/health',
+  };
+
+  try {
+    const start = Date.now();
+    await pool.query('SELECT 1');
+    const latencyMs = Date.now() - start;
+
+    res.status(200).json({
+      success: true,
+      message: 'Database connected and API routes available',
+      timestamp,
+      checks: {
+        database: {
+          ok: true,
+          latencyMs,
+        },
+        endpoints: {
+          ok: true,
+          routes: endpoints,
+        },
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Database connection failed';
+
+    res.status(503).json({
+      success: false,
+      message: 'Database connection failed',
+      timestamp,
+      checks: {
+        database: {
+          ok: false,
+          error: message,
+        },
+        endpoints: {
+          ok: true,
+          routes: endpoints,
+        },
+      },
+    });
+  }
 });
 
 // API routes
