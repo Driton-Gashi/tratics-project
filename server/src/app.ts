@@ -17,7 +17,7 @@ const app = express();
 // CORS configuration
 const allowedOrigins =
   env.nodeEnv === 'production'
-    ? env.clientUrls
+    ? 'https://movie.dritongashi.com'
     : ['http://localhost:3000', 'http://localhost:3001'];
 
 app.use(
