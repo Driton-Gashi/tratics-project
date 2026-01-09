@@ -62,10 +62,7 @@ export default function Header({ onOpenSidebar }: HeaderProps) {
     const onClickOutside = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Node)) return;
-      if (
-        accountMenuRef.current &&
-        !accountMenuRef.current.contains(target)
-      ) {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(target)) {
         setIsAccountOpen(false);
       }
       if (genresMenuRef.current && !genresMenuRef.current.contains(target)) {
