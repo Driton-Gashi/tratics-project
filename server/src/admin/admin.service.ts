@@ -197,6 +197,71 @@ export class AdminService {
     };
   }
 
+  async updateUser(
+    userId: number,
+    updates: { email?: string; username?: string | null; role?: 'user' | 'admin' }
+  ) {
+    const fields: string[] = [];
+    const values: Array<string | null> = [];
+
+    if (updates.email !== undefined) {
+      fields.push('email = ?');
+      values.push(updates.email);
+    }
+
+    if (updates.username !== undefined) {
+      fields.push('username = ?');
+      values.push(updates.username);
+    }
+
+    if (updates.role !== undefined) {
+      fields.push('role = ?');
+      values.push(updates.role);
+    }
+
+    if (fields.length === 0) {
+      return null;
+    }
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+
+    const [result] = await pool.execute<mysql2.ResultSetHeader>(
+      `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
+      [...values, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return null;
+    }
+
+    const [users] = await pool.execute<mysql2.RowDataPacket[]>(
+      'SELECT id, email, username, role, created_at FROM users WHERE id = ?',
+      [userId]
+    );
+
+    const user = users[0];
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      created_at: user.created_at,
+    };
+  }
+
+  async deleteUser(userId: number): Promise<boolean> {
+    const [result] = await pool.execute<mysql2.ResultSetHeader>(
+      'DELETE FROM users WHERE id = ?',
+      [userId]
+    );
+
+    return result.affectedRows > 0;
+  }
+
   async getDashboardStats(): Promise<DashboardStats> {
     const [userStats, viewStats] = await Promise.all([
       this.getUserStats(),

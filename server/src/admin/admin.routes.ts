@@ -15,6 +15,12 @@ router.get('/dashboard', adminController.getDashboard.bind(adminController));
 // GET /admin/users - Get all users with pagination
 router.get('/users', adminController.getUsers.bind(adminController));
 
+// PATCH /admin/users/:id - Update a user
+router.patch('/users/:id', adminController.updateUser.bind(adminController));
+
+// DELETE /admin/users/:id - Delete a user
+router.delete('/users/:id', adminController.deleteUser.bind(adminController));
+
 // GET /admin/stats/views - Get view statistics
 router.get('/stats/views', adminController.getViewStats.bind(adminController));
 

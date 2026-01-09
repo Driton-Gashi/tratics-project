@@ -39,6 +39,14 @@ export type ApiResponse<T> = {
   message?: string;
 };
 
+export type AdminUser = {
+  id: number;
+  email: string;
+  username: string | null;
+  role: 'user' | 'admin';
+  created_at: string;
+};
+
 async function adminRequest<T>(
   endpoint: string,
   options?: RequestInit & { cookies?: string }
@@ -84,13 +92,7 @@ export const adminApi = {
       limit: String(limit),
     });
     const response = await adminRequest<{
-      users: Array<{
-        id: number;
-        email: string;
-        username: string | null;
-        role: string;
-        created_at: string;
-      }>;
+      users: AdminUser[];
       total: number;
       page: number;
       limit: number;
@@ -100,5 +102,31 @@ export const adminApi = {
       throw new Error(response.message || 'Failed to fetch users');
     }
     return response.data;
+  },
+
+  async updateUser(
+    userId: number,
+    updates: { email?: string; username?: string | null; role?: 'user' | 'admin' }
+  ): Promise<AdminUser> {
+    const response = await adminRequest<AdminUser>(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+
+    if (!response.ok || !response.data) {
+      throw new Error(response.message || 'Failed to update user');
+    }
+
+    return response.data;
+  },
+
+  async deleteUser(userId: number): Promise<void> {
+    const response = await adminRequest<null>(`/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error(response.message || 'Failed to delete user');
+    }
   },
 };

@@ -3,7 +3,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 export const logger = {
   info: (message: string, ...args: unknown[]): void => {
     if (isDevelopment) {
-      console.log(`[INFO] ${message}`, ...args);
+      console.warn(`[INFO] ${message}`, ...args);
     }
   },
 
