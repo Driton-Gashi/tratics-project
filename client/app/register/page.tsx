@@ -32,6 +32,11 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     // Client-side validation
+    if (!username.trim()) {
+      setError('Username is required');
+      setIsLoading(false);
+      return;
+    }
     if (password.length < 8) {
       setError('Password must be at least 8 characters long');
       setIsLoading(false);
@@ -51,7 +56,7 @@ export default function RegisterPage() {
         credentials: 'include',
         body: JSON.stringify({
           email,
-          username: username || undefined,
+          username,
           password,
         }),
       });
@@ -110,11 +115,12 @@ export default function RegisterPage() {
               htmlFor="username"
               className="block text-sm font-medium text-slate-900 dark:text-slate-100"
             >
-              Username (optional)
+              Username
             </label>
             <input
               id="username"
               type="text"
+              required
               value={username}
               onChange={e => setUsername(e.target.value)}
               className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-500 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:border-white/10 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 dark:focus:border-slate-400 dark:focus:ring-slate-400"

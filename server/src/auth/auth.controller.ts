@@ -7,12 +7,18 @@ export class AuthController {
   async register(req: Request, res: Response): Promise<void> {
     try {
       const data: RegisterRequest = req.body;
+      const email = data.email?.trim();
+      const username = data.username?.trim();
 
-      if (!data.email || !data.password) {
-        throw new CustomError('Email and password are required', 400);
+      if (!email || !username || !data.password) {
+        throw new CustomError('Email, username, and password are required', 400);
       }
 
-      const user = await authService.register(data);
+      const user = await authService.register({
+        ...data,
+        email,
+        username,
+      });
 
       const response: AuthResponse = {
         ok: true,

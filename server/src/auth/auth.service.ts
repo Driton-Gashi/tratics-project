@@ -12,7 +12,13 @@ const REFRESH_TOKEN_EXPIRY_DAYS = 30;
 
 export class AuthService {
   async register(data: RegisterRequest): Promise<User> {
-    const { email, username, password } = data;
+    const email = data.email.trim();
+    const username = data.username.trim();
+    const { password } = data;
+
+    if (!username) {
+      throw new CustomError('Username is required', 400);
+    }
 
     // Validate password length
     if (password.length < PASSWORD_MIN_LENGTH) {
