@@ -14,6 +14,17 @@ import pool from './db/pool';
 
 const app = express();
 
+// Request logging for quick debugging in local + serverless environments
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const durationMs = Date.now() - start;
+    // Keep log compact to reduce noise in serverless logs
+    console.info(`${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs}ms`);
+  });
+  next();
+});
+
 // CORS configuration
 const allowedOrigins =
   env.nodeEnv === 'production'
@@ -44,6 +55,25 @@ app.get('/health', (_req, res) => {
     success: true,
     message: 'Server is healthy',
     timestamp: new Date().toISOString(),
+  });
+});
+
+// Basic build/runtime info to help debug deployments
+app.get('/health/version', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Deployment info',
+    timestamp: new Date().toISOString(),
+    runtime: {
+      node: process.version,
+      env: env.nodeEnv,
+    },
+    vercel: {
+      commitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      commitMessage: process.env.VERCEL_GIT_COMMIT_MESSAGE || null,
+      region: process.env.VERCEL_REGION || null,
+      url: process.env.VERCEL_URL || null,
+    },
   });
 });
 
